@@ -12,7 +12,8 @@ function toFiniteNumber(value: unknown): number | null {
 
 export async function postGps(req: Request, res: Response) {
   try {
-    const { unidad_id, lat, lon, nivel } = req.body ?? {};
+    const { unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen } =
+      req.body ?? {};
 
     if (!unidad_id || typeof unidad_id !== "string") {
       return res.status(400).json({
@@ -24,6 +25,8 @@ export async function postGps(req: Request, res: Response) {
     const latNum = toFiniteNumber(lat);
     const lonNum = toFiniteNumber(lon);
     const nivelNum = toFiniteNumber(nivel);
+    const nivelCarbNum = toFiniteNumber(nivel_carburacion);
+    const nivelAlmacenNum = toFiniteNumber(nivel_almacen);
 
     if (latNum === null || lonNum === null) {
       return res.status(400).json({
@@ -32,10 +35,39 @@ export async function postGps(req: Request, res: Response) {
       });
     }
 
-    if (nivelNum === null || nivelNum < 0 || nivelNum > 100) {
+    const hasNivel = nivelNum !== null;
+    const hasNivelesDetallados =
+      nivelCarbNum !== null && nivelAlmacenNum !== null;
+
+    if (!hasNivel && !hasNivelesDetallados) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "debes enviar nivel o ambos: nivel_carburacion y nivel_almacen",
+      });
+    }
+
+    if (hasNivel && (nivelNum < 0 || nivelNum > 100)) {
       return res.status(400).json({
         ok: false,
         error: "nivel debe ser número entre 0 y 100",
+      });
+    }
+
+    if (nivelCarbNum !== null && (nivelCarbNum < 0 || nivelCarbNum > 100)) {
+      return res.status(400).json({
+        ok: false,
+        error: "nivel_carburacion debe ser número entre 0 y 100",
+      });
+    }
+
+    if (
+      nivelAlmacenNum !== null &&
+      (nivelAlmacenNum < 0 || nivelAlmacenNum > 100)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "nivel_almacen debe ser número entre 0 y 100",
       });
     }
 
@@ -47,7 +79,19 @@ export async function postGps(req: Request, res: Response) {
       });
     }
 
-    await insertGpsPoint({ unidad_id, lat: latNum, lon: lonNum, nivel: nivelNum });
+    const nivelFinal = hasNivel
+      ? nivelNum
+      : // Compatibilidad: cuando mandan dos niveles, `nivel` se toma del almacén.
+        (nivelAlmacenNum as number);
+
+    await insertGpsPoint({
+      unidad_id,
+      lat: latNum,
+      lon: lonNum,
+      nivel: nivelFinal,
+      nivel_carburacion: nivelCarbNum,
+      nivel_almacen: nivelAlmacenNum,
+    });
     return res.json({ ok: true });
   } catch (error) {
     console.error("[gps.controller] Error:", error);
