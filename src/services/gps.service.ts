@@ -7,6 +7,7 @@ export type GpsInsertInput = {
   nivel: number;
   nivel_carburacion: number | null;
   nivel_almacen: number | null;
+  velocidad_kmh: number | null;
 };
 
 export async function unidadExists(unidad_id: string) {
@@ -23,11 +24,19 @@ export async function unidadExists(unidad_id: string) {
 
 export async function insertGpsPoint(input: GpsInsertInput) {
   // Futuro (solo preparado): asociar gps con pedidos/servicios e historial
-  const { unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen } = input;
+  const {
+    unidad_id,
+    lat,
+    lon,
+    nivel,
+    nivel_carburacion,
+    nivel_almacen,
+    velocidad_kmh,
+  } = input;
 
   const { rows } = await db.query(
-    `INSERT INTO gps_unidades (unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO gps_unidades (unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (unidad_id)
      DO UPDATE SET
        lat = EXCLUDED.lat,
@@ -35,9 +44,10 @@ export async function insertGpsPoint(input: GpsInsertInput) {
        nivel = EXCLUDED.nivel,
        nivel_carburacion = EXCLUDED.nivel_carburacion,
        nivel_almacen = EXCLUDED.nivel_almacen,
+       velocidad_kmh = EXCLUDED.velocidad_kmh,
        fecha = NOW()
      RETURNING id`,
-    [unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen]
+    [unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh]
   );
 
   return { id: rows[0]?.id };

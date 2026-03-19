@@ -12,8 +12,16 @@ function toFiniteNumber(value: unknown): number | null {
 
 export async function postGps(req: Request, res: Response) {
   try {
-    const { unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen } =
-      req.body ?? {};
+    const {
+      unidad_id,
+      lat,
+      lon,
+      nivel,
+      nivel_carburacion,
+      nivel_almacen,
+      velocidad_kmh,
+      vel,
+    } = req.body ?? {};
 
     if (!unidad_id || typeof unidad_id !== "string") {
       return res.status(400).json({
@@ -27,6 +35,8 @@ export async function postGps(req: Request, res: Response) {
     const nivelNum = toFiniteNumber(nivel);
     const nivelCarbNum = toFiniteNumber(nivel_carburacion);
     const nivelAlmacenNum = toFiniteNumber(nivel_almacen);
+    const velRaw = velocidad_kmh ?? vel;
+    const velocidadNum = toFiniteNumber(velRaw);
 
     if (latNum === null || lonNum === null) {
       return res.status(400).json({
@@ -71,6 +81,16 @@ export async function postGps(req: Request, res: Response) {
       });
     }
 
+    if (
+      velocidadNum !== null &&
+      (velocidadNum < 0 || velocidadNum > 300)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "velocidad_kmh debe ser número entre 0 y 300",
+      });
+    }
+
     const exists = await unidadExists(unidad_id);
     if (!exists) {
       return res.status(400).json({
@@ -91,6 +111,7 @@ export async function postGps(req: Request, res: Response) {
       nivel: nivelFinal,
       nivel_carburacion: nivelCarbNum,
       nivel_almacen: nivelAlmacenNum,
+      velocidad_kmh: velocidadNum,
     });
     return res.json({ ok: true });
   } catch (error) {

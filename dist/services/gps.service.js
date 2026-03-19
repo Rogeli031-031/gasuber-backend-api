@@ -12,9 +12,18 @@ async function unidadExists(unidad_id) {
 }
 async function insertGpsPoint(input) {
     // Futuro (solo preparado): asociar gps con pedidos/servicios e historial
-    const { unidad_id, lat, lon, nivel } = input;
-    const { rows } = await db_1.db.query(`INSERT INTO gps_unidades (unidad_id, lat, lon, nivel)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id`, [unidad_id, lat, lon, nivel]);
+    const { unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh, } = input;
+    const { rows } = await db_1.db.query(`INSERT INTO gps_unidades (unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (unidad_id)
+     DO UPDATE SET
+       lat = EXCLUDED.lat,
+       lon = EXCLUDED.lon,
+       nivel = EXCLUDED.nivel,
+       nivel_carburacion = EXCLUDED.nivel_carburacion,
+       nivel_almacen = EXCLUDED.nivel_almacen,
+       velocidad_kmh = EXCLUDED.velocidad_kmh,
+       fecha = NOW()
+     RETURNING id`, [unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh]);
     return { id: rows[0]?.id };
 }
