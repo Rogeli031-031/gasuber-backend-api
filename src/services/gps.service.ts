@@ -28,6 +28,14 @@ export async function insertGpsPoint(input: GpsInsertInput) {
   const { rows } = await db.query(
     `INSERT INTO gps_unidades (unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen)
      VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (unidad_id)
+     DO UPDATE SET
+       lat = EXCLUDED.lat,
+       lon = EXCLUDED.lon,
+       nivel = EXCLUDED.nivel,
+       nivel_carburacion = EXCLUDED.nivel_carburacion,
+       nivel_almacen = EXCLUDED.nivel_almacen,
+       fecha = NOW()
      RETURNING id`,
     [unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen]
   );
