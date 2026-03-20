@@ -24,6 +24,21 @@ node scripts/migrate.cjs --file=sql/007_eventos_inicio_ruta.sql
 
 Header en todas las peticiones de consola: `x-api-key: <clave>`.
 
+## API `/api/gps` (Raspberry)
+
+- **GET `/api/gps/health`** — sin API key; responde `{ ok: true, service: "gps", time: "..." }`. Úsalo desde la Pi para comprobar DNS/HTTPS antes de depurar el POST.
+- **POST `/api/gps`** — header `x-api-key: <API_KEY_RASPBERRY>`, cuerpo JSON (o `application/x-www-form-urlencoded`) con al menos `unidad_id` (igual que `unidades.clave`), `lat`, `lon`, y `nivel` **o** ambos `nivel_carburacion` y `nivel_almacen`.
+
+Ejemplo con `curl` (sustituye URL, clave y unidad):
+
+```bash
+curl -sS "https://TU-DOMINIO/api/gps/health"
+curl -sS -X POST "https://TU-DOMINIO/api/gps" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: TU_API_KEY_RASPBERRY" \
+  -d '{"unidad_id":"ATQ-01","lat":19.11,"lon":-98.22,"nivel_carburacion":40,"nivel_almacen":77,"velocidad_kmh":0}'
+```
+
 ## API `/api/consola`
 
 | Método | Ruta | Descripción |

@@ -14,6 +14,7 @@
   const eventStack = document.getElementById("eventStack");
   const raspberryIndicator = document.getElementById("raspberryIndicator");
   const raspberryText = document.getElementById("raspberryText");
+  const raspberryHint = document.getElementById("raspberryHint");
 
   /** @type {{ telemetria: object | null, clave: string }} */
   let snapshot = { telemetria: null, clave: "" };
@@ -47,9 +48,18 @@
   function setRaspberryIndicator(r) {
     if (!raspberryIndicator || !raspberryText) return;
     raspberryIndicator.classList.remove("ok", "warn", "bad");
+    if (raspberryHint) {
+      raspberryHint.hidden = true;
+      raspberryHint.textContent = "";
+    }
     if (!r || r.sin_fila_gps) {
       raspberryIndicator.classList.add("bad");
       raspberryText.textContent = "Raspberry: sin datos en servidor";
+      if (raspberryHint) {
+        raspberryHint.hidden = false;
+        raspberryHint.textContent =
+          "La Pi debe enviar POST /api/gps con header x-api-key (API_KEY_RASPBERRY) y unidad_id igual a la clave de la unidad. Prueba GET /api/gps/health para verificar la URL del backend.";
+      }
       return;
     }
     if (r.recibiendo_datos) {
@@ -67,6 +77,11 @@
       s != null
         ? `Raspberry: sin datos recientes (hace ${s}s · umbral ${r.umbral_segundos}s)`
         : "Raspberry: datos desactualizados";
+    if (raspberryHint) {
+      raspberryHint.hidden = false;
+      raspberryHint.textContent =
+        "El último envío a la base de datos es anterior al umbral. Comprueba que la Raspberry esté encendida, con red, que el script use la misma URL y clave que el servidor, y que unidad_id coincida con la unidad seleccionada.";
+    }
   }
 
   async function fetchJson(url, options) {

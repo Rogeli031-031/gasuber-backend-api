@@ -13,7 +13,7 @@ function toFiniteNumber(value: unknown): number | null {
 export async function postGps(req: Request, res: Response) {
   try {
     const {
-      unidad_id,
+      unidad_id: unidadRaw,
       lat,
       lon,
       nivel,
@@ -23,10 +23,17 @@ export async function postGps(req: Request, res: Response) {
       vel,
     } = req.body ?? {};
 
-    if (!unidad_id || typeof unidad_id !== "string") {
+    const unidad_id =
+      typeof unidadRaw === "string"
+        ? unidadRaw.trim()
+        : typeof unidadRaw === "number" && Number.isFinite(unidadRaw)
+          ? String(unidadRaw)
+          : "";
+
+    if (!unidad_id) {
       return res.status(400).json({
         ok: false,
-        error: "unidad_id es requerido (string)",
+        error: "unidad_id es requerido (string, igual que unidades.clave en la BD)",
       });
     }
 
@@ -95,7 +102,9 @@ export async function postGps(req: Request, res: Response) {
     if (!exists) {
       return res.status(400).json({
         ok: false,
-        error: "unidad_id no existe",
+        error: "unidad_id no existe en la tabla unidades",
+        hint:
+          "Debe coincidir exactamente con la clave de la unidad (sin espacios extra). Revisa en la consola el valor del desplegable.",
       });
     }
 

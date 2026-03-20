@@ -60,6 +60,14 @@ body {
   line-height: 1.45;
 }
 
+.raspberry-hint {
+  margin: 0.35rem 0 0 0;
+  max-width: 52rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--amber);
+}
+
 .raspberry-pill {
   flex: 0 0 auto;
   display: inline-flex;

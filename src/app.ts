@@ -10,6 +10,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const publicDir = path.join(__dirname, "../public");
 app.use("/consola", express.static(path.join(publicDir, "consola")));
