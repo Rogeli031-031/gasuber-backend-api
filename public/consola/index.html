@@ -79,6 +79,9 @@
         <button type="button" id="btnInicioRuta" class="btn primary" disabled>
           Guardar en base de datos (inicio de ruta)
         </button>
+        <button type="button" id="btnPedido" class="btn secondary" disabled>
+          Pedido
+        </button>
         <div class="status" id="statusMsg"></div>
       </section>
 
@@ -86,6 +89,76 @@
         <h2>Historial de inicios de ruta <span class="hint">(más reciente arriba)</span></h2>
         <div id="eventStack" class="event-stack"></div>
       </section>
+
+      <section class="panel-wrap">
+        <h2>Pedidos <span class="hint">(ordenados por litros, de alto a bajo)</span></h2>
+        <div id="pedidoStack" class="event-stack"></div>
+      </section>
+
+      <div id="pedidoModal" class="modal-overlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pedidoModalTitle">
+          <h2 id="pedidoModalTitle">Nuevo Pedido</h2>
+          <form id="pedidoForm">
+            <div class="form-grid">
+              <label>
+                Cliente
+                <input id="inpClienteNombre" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Teléfono
+                <input id="inpTelefonoOrigen" type="text" autocomplete="off" />
+              </label>
+
+              <label>
+                Colonia
+                <input id="inpColonia" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Calle
+                <input id="inpCalle" type="text" autocomplete="off" />
+              </label>
+              <label>
+                CP
+                <input id="inpCp" type="text" inputmode="numeric" autocomplete="off" placeholder="CP647489" />
+              </label>
+              <label>
+                Número exterior
+                <input id="inpNumExterior" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Número interior
+                <input id="inpNumInterior" type="text" autocomplete="off" placeholder="N/A" />
+              </label>
+
+              <label>
+                Casa / Empresa
+                <select id="selTipoOrigen">
+                  <option value="casa">Casa</option>
+                  <option value="empresa">Empresa</option>
+                </select>
+              </label>
+              <label>
+                Nombre de empresa
+                <input id="inpNombreEmpresa" type="text" autocomplete="off" placeholder="N/A" />
+              </label>
+
+              <label style="grid-column: 1 / -1;">
+                Litros solicitados (entero > 0)
+                <input id="inpLitrosSolicitados" type="number" step="1" min="1" autocomplete="off" />
+              </label>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" id="btnPedidoCancelar" class="btn secondary">
+                Cancelar
+              </button>
+              <button type="submit" id="btnPedidoGuardar" class="btn primary">
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
     <script src="./app.js"></script>
   </body>

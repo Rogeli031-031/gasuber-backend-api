@@ -9,4 +9,6 @@ exports.consolaRoutes.use(requireApiKey_1.requireApiKey);
 exports.consolaRoutes.get("/unidades", consola_controller_1.getUnidadesConsola);
 exports.consolaRoutes.get("/telemetria/:clave", consola_controller_1.getTelemetriaConsola);
 exports.consolaRoutes.get("/eventos", consola_controller_1.getEventosConsola);
+exports.consolaRoutes.get("/pedidos", consola_controller_1.getPedidosConsola);
+exports.consolaRoutes.post("/pedidos", consola_controller_1.postPedidoConsola);
 exports.consolaRoutes.post("/inicio-ruta", consola_controller_1.postInicioRuta);

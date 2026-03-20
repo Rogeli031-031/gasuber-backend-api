@@ -10,8 +10,10 @@
   const gVel = document.getElementById("gVel");
   const metaLine = document.getElementById("metaLine");
   const btnInicioRuta = document.getElementById("btnInicioRuta");
+  const btnPedido = document.getElementById("btnPedido");
   const statusMsg = document.getElementById("statusMsg");
   const eventStack = document.getElementById("eventStack");
+  const pedidoStack = document.getElementById("pedidoStack");
   const raspberryIndicator = document.getElementById("raspberryIndicator");
   const raspberryText = document.getElementById("raspberryText");
   const raspberryHint = document.getElementById("raspberryHint");
@@ -20,6 +22,23 @@
   let snapshot = { telemetria: null, clave: "" };
   let pollTimer = null;
   let saving = false;
+  let pedidoSaving = false;
+
+  const pedidoModal = document.getElementById("pedidoModal");
+  const pedidoForm = document.getElementById("pedidoForm");
+  const btnPedidoCancelar = document.getElementById("btnPedidoCancelar");
+  const btnPedidoGuardar = document.getElementById("btnPedidoGuardar");
+
+  const inpClienteNombre = document.getElementById("inpClienteNombre");
+  const inpTelefonoOrigen = document.getElementById("inpTelefonoOrigen");
+  const inpColonia = document.getElementById("inpColonia");
+  const inpCalle = document.getElementById("inpCalle");
+  const inpCp = document.getElementById("inpCp");
+  const inpNumExterior = document.getElementById("inpNumExterior");
+  const inpNumInterior = document.getElementById("inpNumInterior");
+  const selTipoOrigen = document.getElementById("selTipoOrigen");
+  const inpNombreEmpresa = document.getElementById("inpNombreEmpresa");
+  const inpLitrosSolicitados = document.getElementById("inpLitrosSolicitados");
 
   function apiHeaders() {
     const key = inpApiKey.value.trim() || sessionStorage.getItem(STORAGE_KEY);
@@ -185,6 +204,137 @@
       .replace(/"/g, "&quot;");
   }
 
+  function openPedidoModal() {
+    if (!pedidoModal) return;
+    pedidoModal.hidden = false;
+    setStatus("", "");
+
+    // Prefill para respetar tu regla de N/A cuando no aplique.
+    if (selTipoOrigen && selTipoOrigen.value === "casa" && inpNombreEmpresa) {
+      inpNombreEmpresa.value = "N/A";
+    }
+    if (inpNumInterior) inpNumInterior.value = inpNumInterior.value || "N/A";
+    if (inpCp && inpCp.value) inpCp.value = inpCp.value.trim();
+    if (inpClienteNombre) inpClienteNombre.focus();
+  }
+
+  function closePedidoModal() {
+    if (!pedidoModal) return;
+    pedidoModal.hidden = true;
+  }
+
+  function clearPedidoForm() {
+    if (!pedidoForm) return;
+    pedidoForm.reset();
+    if (inpNumInterior) inpNumInterior.value = "N/A";
+    if (inpNombreEmpresa) inpNombreEmpresa.value = "N/A";
+    if (selTipoOrigen) selTipoOrigen.value = "casa";
+  }
+
+  function renderPedidoCard(p) {
+    const card = document.createElement("article");
+    card.className = "event-card";
+    card.innerHTML = `
+      <h3>Pedido</h3>
+      <div class="ts">Registrado: ${escapeHtml(p.created_at)} · ID #${escapeHtml(
+        String(p.id)
+      )}</div>
+      <dl>
+        <dt>Cliente</dt><dd>${escapeHtml(p.cliente_nombre ?? "—")}</dd>
+        <dt>Teléfono</dt><dd>${escapeHtml(p.telefono_origen)}</dd>
+        <dt>Dirección</dt><dd>${escapeHtml(p.direccion_texto)}</dd>
+        <dt>Litros</dt><dd>${escapeHtml(String(p.litros_solicitados ?? "—"))}</dd>
+        <dt>Estado</dt><dd>${escapeHtml(p.estado)}</dd>
+      </dl>
+    `;
+    return card;
+  }
+
+  async function cargarPedidos() {
+    try {
+      if (!pedidoStack) return;
+      const data = await fetchJson("/api/consola/pedidos", {
+        headers: apiHeaders(),
+      });
+      pedidoStack.innerHTML = "";
+      const list = data.pedidos || [];
+      if (!list.length) {
+        pedidoStack.innerHTML =
+          '<p class="empty-stack">Aún no hay pedidos guardados.</p>';
+        return;
+      }
+      for (const p of list) {
+        pedidoStack.appendChild(renderPedidoCard(p));
+      }
+    } catch (e) {
+      setStatus(e.message || String(e), "err");
+    }
+  }
+
+  async function guardarPedido() {
+    if (pedidoSaving) return;
+    if (!pedidoForm) return;
+    if (!inpClienteNombre || !inpTelefonoOrigen || !inpCp || !inpLitrosSolicitados) return;
+
+    const body = {
+      cliente_nombre: inpClienteNombre.value,
+      telefono_origen: inpTelefonoOrigen.value,
+      colonia: inpColonia.value,
+      calle: inpCalle.value,
+      cp: inpCp.value,
+      numero_exterior: inpNumExterior.value,
+      numero_interior: inpNumInterior.value,
+      tipo_origen: selTipoOrigen.value,
+      nombre_empresa: inpNombreEmpresa.value,
+      litros_solicitados: inpLitrosSolicitados.value,
+    };
+
+    const required = [
+      body.cliente_nombre,
+      body.telefono_origen,
+      body.colonia,
+      body.calle,
+      body.cp,
+      body.numero_exterior,
+      body.numero_interior,
+      body.tipo_origen,
+      body.nombre_empresa,
+      body.litros_solicitados,
+    ];
+
+    if (required.some((v) => v == null || String(v).trim() === "")) {
+      setStatus(
+        "Completa todos los campos del pedido (usa N/A donde no aplique).",
+        "err"
+      );
+      return;
+    }
+
+    pedidoSaving = true;
+    if (btnPedidoGuardar) btnPedidoGuardar.disabled = true;
+    setStatus("Guardando…", "");
+
+    try {
+      await fetchJson("/api/consola/pedidos", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify(body),
+      });
+      setStatus("Pedido guardado correctamente.", "ok");
+      clearPedidoForm();
+      closePedidoModal();
+      await cargarPedidos();
+    } catch (e) {
+      let msg = e.message || String(e);
+      if (e.data?.hint) msg += " — " + e.data.hint;
+      else if (e.data?.detail) msg += " (" + e.data.detail + ")";
+      setStatus(msg, "err");
+    } finally {
+      pedidoSaving = false;
+      if (btnPedidoGuardar) btnPedidoGuardar.disabled = false;
+    }
+  }
+
   async function cargarEventos() {
     const clave = selUnidad.value;
     if (!clave) return;
@@ -266,6 +416,8 @@
     setStatus("Clave guardada en este navegador.", "ok");
     cargarUnidades();
     cargarEventos();
+    if (btnPedido) btnPedido.disabled = false;
+    cargarPedidos();
   });
 
   selUnidad.addEventListener("change", () => {
@@ -276,11 +428,46 @@
 
   btnInicioRuta.addEventListener("click", guardarInicioRuta);
 
+  if (selTipoOrigen) {
+    selTipoOrigen.addEventListener("change", () => {
+      if (selTipoOrigen.value === "casa" && inpNombreEmpresa) {
+        inpNombreEmpresa.value = "N/A";
+      }
+      if (selTipoOrigen.value === "empresa" && inpNombreEmpresa) {
+        inpNombreEmpresa.value = "";
+      }
+    });
+  }
+
+  if (btnPedido) {
+    btnPedido.addEventListener("click", () => {
+      if (btnPedido.disabled) return;
+      clearPedidoForm();
+      openPedidoModal();
+    });
+  }
+
+  if (btnPedidoCancelar) {
+    btnPedidoCancelar.addEventListener("click", () => {
+      clearPedidoForm();
+      closePedidoModal();
+    });
+  }
+
+  if (pedidoForm) {
+    pedidoForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      guardarPedido();
+    });
+  }
+
   inpApiKey.value = sessionStorage.getItem(STORAGE_KEY) || "";
 
   if (inpApiKey.value.trim()) {
     cargarUnidades();
     cargarEventos();
+    if (btnPedido) btnPedido.disabled = false;
+    cargarPedidos();
   } else {
     setStatus("Introduce la API key y pulsa «Guardar clave».", "");
     eventStack.innerHTML =

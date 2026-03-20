@@ -5,6 +5,10 @@ import {
   insertEventoInicioRuta,
   listEventosPorClave,
 } from "../services/eventosInicioRuta.service";
+import {
+  insertPedido,
+  listPedidosParaConsola,
+} from "../services/pedidos.service";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -19,6 +23,65 @@ function toIntOrNull(value: unknown): number | null {
   const n = toFiniteNumber(value);
   if (n === null) return null;
   return Math.round(n);
+}
+
+function toTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  return s ? s : null;
+}
+
+function normalizeNA(value: string): string {
+  return value.trim().toUpperCase() === "N/A" ? "N/A" : value.trim();
+}
+
+function normalizeTipoOrigen(value: unknown): "casa" | "empresa" | null {
+  const s = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (s === "casa") return "casa";
+  if (s === "empresa") return "empresa";
+  return null;
+}
+
+function normalizeCpToInt(cpRaw: unknown): number | null {
+  const s =
+    typeof cpRaw === "number" && Number.isFinite(cpRaw)
+      ? String(Math.trunc(cpRaw))
+      : typeof cpRaw === "string"
+        ? cpRaw.trim()
+        : "";
+
+  if (!s) return null;
+
+  // Acepta:
+  // - "647489"
+  // - "CP647489"
+  // - "CP 647489" (exactamente un espacio)
+  const digitsOnly = s.match(/^\d+$/);
+  const cpWithPrefix = s.match(/^CP ?(\d+)$/i);
+
+  const digits = digitsOnly ? digitsOnly[0] : cpWithPrefix ? cpWithPrefix[1] : null;
+  if (!digits) return null;
+
+  const n = Number(digits);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return null;
+  return n;
+}
+
+function parseLitrosEnteroPositivo(litrosRaw: unknown): number | null {
+  const n =
+    typeof litrosRaw === "number"
+      ? litrosRaw
+      : typeof litrosRaw === "string"
+        ? Number(litrosRaw.trim())
+        : NaN;
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
+function prioridadDesdeLitros(litros: number): number {
+  if (litros >= 1001) return 5; // Alta
+  if (litros >= 201) return 3; // Media
+  return 1; // Baja (1..200)
 }
 
 export async function getUnidadesConsola(_req: Request, res: Response) {
@@ -205,5 +268,109 @@ export async function postInicioRuta(req: Request, res: Response) {
         ? { detail: pg.message }
         : {}),
     });
+  }
+}
+
+export async function getPedidosConsola(req: Request, res: Response) {
+  try {
+    const limitRaw = req.query.limit;
+    const limit =
+      typeof limitRaw === "string" ? Number(limitRaw) : Number(limitRaw ?? 100);
+
+    const pedidos = await listPedidosParaConsola(
+      Number.isFinite(limit) ? limit : 100
+    );
+    return res.json({ ok: true, pedidos });
+  } catch (error) {
+    console.error("[consola] getPedidos:", error);
+    return res.status(500).json({ ok: false, error: "Error listando pedidos" });
+  }
+}
+
+export async function postPedidoConsola(req: Request, res: Response) {
+  try {
+    const {
+      cliente_nombre,
+      telefono_origen,
+      colonia,
+      calle,
+      cp,
+      numero_exterior,
+      numero_interior,
+      tipo_origen,
+      nombre_empresa,
+      litros_solicitados,
+    } = req.body ?? {};
+
+    const clienteNombre = toTrimmedString(cliente_nombre);
+    const telefono = toTrimmedString(telefono_origen);
+    const coloniaTxt = toTrimmedString(colonia);
+    const calleTxt = toTrimmedString(calle);
+    const numeroExteriorTxt = toTrimmedString(numero_exterior);
+    const numeroInteriorTxt = toTrimmedString(numero_interior);
+    const tipo = normalizeTipoOrigen(tipo_origen);
+    const nombreEmpresaRaw = toTrimmedString(nombre_empresa);
+
+    const cpNorm = normalizeCpToInt(cp);
+    const litros = parseLitrosEnteroPositivo(litros_solicitados);
+
+    if (
+      !clienteNombre ||
+      !telefono ||
+      !coloniaTxt ||
+      !calleTxt ||
+      !numeroExteriorTxt ||
+      !numeroInteriorTxt ||
+      !tipo ||
+      !nombreEmpresaRaw ||
+      cpNorm == null ||
+      litros == null
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Completa todos los campos requeridos (usa N/A donde no aplique y CP como solo dígitos).",
+      });
+    }
+
+    const numeroInteriorNorm = normalizeNA(numeroInteriorTxt);
+    const nombreEmpresaNorm = normalizeNA(nombreEmpresaRaw);
+
+    if (tipo === "casa" && nombreEmpresaNorm !== "N/A") {
+      return res.status(400).json({
+        ok: false,
+        error: "Si es Casa, el nombre de empresa debe ser N/A.",
+      });
+    }
+    if (tipo === "empresa" && nombreEmpresaNorm === "N/A") {
+      return res.status(400).json({
+        ok: false,
+        error: "Si es Empresa, el nombre de empresa no puede ser N/A.",
+      });
+    }
+
+    const tipoLabel = tipo === "casa" ? "Casa" : "Empresa";
+    const direccion_texto = `${tipoLabel} - ${nombreEmpresaNorm} | ${calleTxt} No. ${numeroExteriorTxt} Int. ${numeroInteriorNorm}, ${coloniaTxt}, CP ${cpNorm}`;
+    const prioridad = prioridadDesdeLitros(litros);
+
+    const pedido = await insertPedido({
+      telefono_origen: telefono,
+      cliente_nombre: clienteNombre,
+      direccion_texto,
+      litros_solicitados: litros,
+      prioridad,
+      colonia: coloniaTxt,
+      calle: calleTxt,
+      cp: cpNorm,
+      numero_exterior: numeroExteriorTxt,
+      numero_interior: numeroInteriorNorm,
+      tipo_origen: tipo,
+      nombre_empresa: nombreEmpresaNorm,
+    });
+
+    return res.status(201).json({ ok: true, pedido });
+  } catch (error) {
+    console.error("[consola] postPedidoConsola:", error);
+    return res.status(500).json({ ok: false, error: "Error guardando pedido" });
   }
 }
