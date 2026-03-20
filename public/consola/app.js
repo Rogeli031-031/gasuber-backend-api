@@ -40,6 +40,9 @@
   const inpNombreEmpresa = document.getElementById("inpNombreEmpresa");
   const inpLitrosSolicitados = document.getElementById("inpLitrosSolicitados");
 
+  // Asegura que el modal esté cerrado siempre al cargar (evita que quede abierto por estado previo).
+  if (pedidoModal) pedidoModal.hidden = true;
+
   function apiHeaders() {
     const key = inpApiKey.value.trim() || sessionStorage.getItem(STORAGE_KEY);
     if (!key) throw new Error("Falta API key");
@@ -451,6 +454,22 @@
     btnPedidoCancelar.addEventListener("click", () => {
       clearPedidoForm();
       closePedidoModal();
+    });
+  }
+
+  // Click en el fondo del overlay o ESC para cerrar (robustez anti-congelamiento).
+  if (pedidoModal) {
+    pedidoModal.addEventListener("click", (e) => {
+      if (e.target === pedidoModal) {
+        clearPedidoForm();
+        closePedidoModal();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        clearPedidoForm();
+        closePedidoModal();
+      }
     });
   }
 
