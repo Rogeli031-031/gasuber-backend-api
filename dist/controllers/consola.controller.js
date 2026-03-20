@@ -155,9 +155,27 @@ async function postInicioRuta(req, res) {
     }
     catch (error) {
         console.error("[consola] postInicioRuta:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existe la tabla de inicios de ruta en PostgreSQL.",
+                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/007_eventos_inicio_ruta.sql",
+            });
+        }
+        if (pg.code === "42501") {
+            return res.status(500).json({
+                ok: false,
+                error: "Sin permiso para escribir en la base de datos (inicio de ruta).",
+                hint: "Revisa el usuario de DATABASE_URL y el esquema gasuber.",
+            });
+        }
         return res.status(500).json({
             ok: false,
             error: "Error guardando evento",
+            ...(process.env.NODE_ENV !== "production" && pg.message
+                ? { detail: pg.message }
+                : {}),
         });
     }
 }

@@ -250,7 +250,10 @@
       if (empty) empty.remove();
       eventStack.insertBefore(card, eventStack.firstChild);
     } catch (e) {
-      setStatus(e.message || String(e), "err");
+      let msg = e.message || String(e);
+      if (e.data?.hint) msg += " — " + e.data.hint;
+      else if (e.data?.detail) msg += " (" + e.data.detail + ")";
+      setStatus(msg, "err");
     } finally {
       saving = false;
       btnInicioRuta.disabled = false;

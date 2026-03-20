@@ -9,12 +9,16 @@ La página raíz `/` incluye un enlace a la consola.
 
 ## Base de datos
 
-Ejecutar la migración de historial:
+**Obligatorio** para el botón «Inicio de ruta»: la tabla `eventos_inicio_ruta`. Si solo migraste GPS pero no esta migración, la consola verá telemetría en vivo pero fallará al guardar con *Error guardando evento*.
+
+Ejecutar en la misma base que usa `DATABASE_URL` (local o Render):
 
 ```bash
 cd backend-api
 node scripts/migrate.cjs --file=sql/007_eventos_inicio_ruta.sql
 ```
+
+En **Render**: conecta con la URL interna de Postgres o desde tu PC apuntando a la `DATABASE_URL` externa y ejecuta el comando anterior una vez.
 
 ## Variables de entorno
 
