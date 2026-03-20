@@ -28,6 +28,7 @@
   const pedidoForm = document.getElementById("pedidoForm");
   const btnPedidoCancelar = document.getElementById("btnPedidoCancelar");
   const btnPedidoGuardar = document.getElementById("btnPedidoGuardar");
+  const pedidoStatusMsg = document.getElementById("pedidoStatusMsg");
 
   const inpClienteNombre = document.getElementById("inpClienteNombre");
   const inpTelefonoOrigen = document.getElementById("inpTelefonoOrigen");
@@ -55,6 +56,12 @@
   function setStatus(text, kind) {
     statusMsg.textContent = text || "";
     statusMsg.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function setPedidoStatus(text, kind) {
+    if (!pedidoStatusMsg) return;
+    pedidoStatusMsg.textContent = text || "";
+    pedidoStatusMsg.className = "status" + (kind ? " " + kind : "");
   }
 
   function fmtPct(v) {
@@ -211,6 +218,7 @@
     if (!pedidoModal) return;
     pedidoModal.hidden = false;
     setStatus("", "");
+    setPedidoStatus("", "");
 
     // Prefill para respetar tu regla de N/A cuando no aplique.
     if (selTipoOrigen && selTipoOrigen.value === "casa" && inpNombreEmpresa) {
@@ -224,6 +232,7 @@
   function closePedidoModal() {
     if (!pedidoModal) return;
     pedidoModal.hidden = true;
+    setPedidoStatus("", "");
   }
 
   function clearPedidoForm() {
@@ -316,6 +325,7 @@
     pedidoSaving = true;
     if (btnPedidoGuardar) btnPedidoGuardar.disabled = true;
     setStatus("Guardando…", "");
+    setPedidoStatus("Guardando…", "");
 
     try {
       await fetchJson("/api/consola/pedidos", {
@@ -324,6 +334,7 @@
         body: JSON.stringify(body),
       });
       setStatus("Pedido guardado correctamente.", "ok");
+      setPedidoStatus("", "");
       clearPedidoForm();
       closePedidoModal();
       await cargarPedidos();
@@ -332,6 +343,7 @@
       if (e.data?.hint) msg += " — " + e.data.hint;
       else if (e.data?.detail) msg += " (" + e.data.detail + ")";
       setStatus(msg, "err");
+      setPedidoStatus(msg, "err");
     } finally {
       pedidoSaving = false;
       if (btnPedidoGuardar) btnPedidoGuardar.disabled = false;
