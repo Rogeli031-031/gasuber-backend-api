@@ -7,7 +7,7 @@ export type GpsInsertInput = {
   nivel: number;
   nivel_carburacion: number | null;
   nivel_almacen: number | null;
-  velocidad_kmh: number | null;
+  velocidad_kmh: number;
 };
 
 export async function unidadExists(unidad_id: string) {

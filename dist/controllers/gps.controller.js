@@ -6,19 +6,35 @@ function toFiniteNumber(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;
     if (typeof value === "string") {
-        const n = Number(value);
+        const t = value.trim();
+        if (t === "")
+            return null;
+        const n = Number(t);
         if (Number.isFinite(n))
             return n;
     }
     return null;
 }
+function firstDefined(...vals) {
+    for (const v of vals) {
+        if (v !== undefined && v !== null)
+            return v;
+    }
+    return undefined;
+}
 async function postGps(req, res) {
     try {
-        const { unidad_id, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh, vel, } = req.body ?? {};
-        if (!unidad_id || typeof unidad_id !== "string") {
+        const body = req.body ?? {};
+        const { unidad_id: unidadRaw, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh, vel, speed, velocidad, kmh, speed_kmh, } = body;
+        const unidad_id = typeof unidadRaw === "string"
+            ? unidadRaw.trim()
+            : typeof unidadRaw === "number" && Number.isFinite(unidadRaw)
+                ? String(unidadRaw)
+                : "";
+        if (!unidad_id) {
             return res.status(400).json({
                 ok: false,
-                error: "unidad_id es requerido (string)",
+                error: "unidad_id es requerido (string, igual que unidades.clave en la BD)",
             });
         }
         const latNum = toFiniteNumber(lat);
@@ -26,8 +42,27 @@ async function postGps(req, res) {
         const nivelNum = toFiniteNumber(nivel);
         const nivelCarbNum = toFiniteNumber(nivel_carburacion);
         const nivelAlmacenNum = toFiniteNumber(nivel_almacen);
-        const velRaw = velocidad_kmh ?? vel;
-        const velocidadNum = toFiniteNumber(velRaw);
+        const velRaw = firstDefined(velocidad_kmh, vel, speed, velocidad, kmh, speed_kmh);
+        let velocidadFinal;
+        if (velRaw === undefined) {
+            velocidadFinal = 0;
+        }
+        else {
+            const velocidadNum = toFiniteNumber(velRaw);
+            if (velocidadNum === null) {
+                return res.status(400).json({
+                    ok: false,
+                    error: "velocidad inválida (número 0–300). Acepta: velocidad_kmh, vel, speed, velocidad, kmh, speed_kmh",
+                });
+            }
+            if (velocidadNum < 0 || velocidadNum > 300) {
+                return res.status(400).json({
+                    ok: false,
+                    error: "velocidad_kmh debe ser número entre 0 y 300",
+                });
+            }
+            velocidadFinal = velocidadNum;
+        }
         if (latNum === null || lonNum === null) {
             return res.status(400).json({
                 ok: false,
@@ -61,18 +96,12 @@ async function postGps(req, res) {
                 error: "nivel_almacen debe ser número entre 0 y 100",
             });
         }
-        if (velocidadNum !== null &&
-            (velocidadNum < 0 || velocidadNum > 300)) {
-            return res.status(400).json({
-                ok: false,
-                error: "velocidad_kmh debe ser número entre 0 y 300",
-            });
-        }
         const exists = await (0, gps_service_1.unidadExists)(unidad_id);
         if (!exists) {
             return res.status(400).json({
                 ok: false,
-                error: "unidad_id no existe",
+                error: "unidad_id no existe en la tabla unidades",
+                hint: "Debe coincidir exactamente con la clave de la unidad (sin espacios extra). Revisa en la consola el valor del desplegable.",
             });
         }
         const nivelFinal = hasNivel
@@ -86,7 +115,7 @@ async function postGps(req, res) {
             nivel: nivelFinal,
             nivel_carburacion: nivelCarbNum,
             nivel_almacen: nivelAlmacenNum,
-            velocidad_kmh: velocidadNum,
+            velocidad_kmh: velocidadFinal,
         });
         return res.json({ ok: true });
     }

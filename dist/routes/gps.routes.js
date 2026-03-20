@@ -4,6 +4,14 @@ exports.gpsRoutes = void 0;
 const express_1 = require("express");
 const gps_controller_1 = require("../controllers/gps.controller");
 exports.gpsRoutes = (0, express_1.Router)();
+/** Sin API key: comprobar que la URL del backend es correcta (DNS/HTTPS) desde la Pi. */
+exports.gpsRoutes.get("/health", (_req, res) => {
+    res.json({
+        ok: true,
+        service: "gps",
+        time: new Date().toISOString(),
+    });
+});
 /**
  * Telemetría desde Raspberry: solo API_KEY_RASPBERRY (no API_KEY_CONSOLE).
  */

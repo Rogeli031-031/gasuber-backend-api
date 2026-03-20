@@ -13,6 +13,7 @@ const consola_routes_1 = require("./routes/consola.routes");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+app.use(express_1.default.urlencoded({ extended: true }));
 const publicDir = path_1.default.join(__dirname, "../public");
 app.use("/consola", express_1.default.static(path_1.default.join(publicDir, "consola")));
 app.get("/", (req, res) => {

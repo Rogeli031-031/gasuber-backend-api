@@ -27,7 +27,7 @@ Header en todas las peticiones de consola: `x-api-key: <clave>`.
 ## API `/api/gps` (Raspberry)
 
 - **GET `/api/gps/health`** — sin API key; responde `{ ok: true, service: "gps", time: "..." }`. Úsalo desde la Pi para comprobar DNS/HTTPS antes de depurar el POST.
-- **POST `/api/gps`** — header `x-api-key: <API_KEY_RASPBERRY>`, cuerpo JSON (o `application/x-www-form-urlencoded`) con al menos `unidad_id` (igual que `unidades.clave`), `lat`, `lon`, y `nivel` **o** ambos `nivel_carburacion` y `nivel_almacen`.
+- **POST `/api/gps`** — header `x-api-key: <API_KEY_RASPBERRY>`, cuerpo JSON (o `application/x-www-form-urlencoded`) con al menos `unidad_id` (igual que `unidades.clave`), `lat`, `lon`, y `nivel` **o** ambos `nivel_carburacion` y `nivel_almacen`. **Velocidad:** se guarda en `velocidad_kmh`; si no envías ningún campo de velocidad, el servidor guarda **0**. También se aceptan alias: `vel`, `speed`, `velocidad`, `kmh`, `speed_kmh` (se usa el primero definido).
 
 Ejemplo con `curl` (sustituye URL, clave y unidad):
 
