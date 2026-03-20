@@ -1,10 +1,12 @@
-import { Router } from "express";
-import type { Request, Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { postGps } from "../controllers/gps.controller";
 
 export const gpsRoutes = Router();
 
-function requireApiKey(req: Request, res: Response) {
+/**
+ * Telemetría desde Raspberry: solo API_KEY_RASPBERRY (no API_KEY_CONSOLE).
+ */
+function requireRaspberryKey(req: Request, res: Response, next: NextFunction) {
   const expected = process.env.API_KEY_RASPBERRY;
   const provided = req.header("x-api-key");
 
@@ -19,12 +21,8 @@ function requireApiKey(req: Request, res: Response) {
     return res.status(401).json({ ok: false, error: "unauthorized" });
   }
 
-  return null;
+  return next();
 }
 
-gpsRoutes.post("/", (req, res) => {
-  const authResponse = requireApiKey(req, res);
-  if (authResponse) return;
-  return postGps(req, res);
-});
+gpsRoutes.post("/", requireRaspberryKey, postGps);
 

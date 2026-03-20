@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gas Uber — Consola autotanque</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>Consola autotanque</h1>
+        <p class="sub">
+          Lectura en vivo cada 0,5 s (no crea historial). El botón guarda un
+          <strong>Inicio de ruta</strong> en la base de datos.
+        </p>
+        <div class="config-row">
+          <label>
+            Unidad
+            <select id="selUnidad"></select>
+          </label>
+          <label class="grow">
+            API key (<code>x-api-key</code>)
+            <input
+              id="inpApiKey"
+              type="password"
+              autocomplete="off"
+              placeholder="Misma que API_KEY_CONSOLE o API_KEY_RASPBERRY"
+            />
+          </label>
+          <button type="button" id="btnGuardarKey" class="btn secondary">
+            Guardar clave
+          </button>
+        </div>
+      </header>
+
+      <section class="gauges" aria-label="Medidores en tiempo real">
+        <article class="gauge">
+          <h2>Carburación</h2>
+          <div class="digital" id="gCarb">—</div>
+          <div class="unit">% nivel</div>
+        </article>
+        <article class="gauge">
+          <h2>Almacén AT</h2>
+          <div class="digital" id="gAlm">—</div>
+          <div class="unit">% nivel</div>
+        </article>
+        <article class="gauge gauge-speed">
+          <h2>Velocidad</h2>
+          <div class="digital digital-speed" id="gVel">—</div>
+          <div class="unit">km/h</div>
+        </article>
+      </section>
+
+      <section class="meta-line" id="metaLine"></section>
+
+      <section class="actions">
+        <button type="button" id="btnInicioRuta" class="btn primary" disabled>
+          Guardar en base de datos (inicio de ruta)
+        </button>
+        <div class="status" id="statusMsg"></div>
+      </section>
+
+      <section class="panel-wrap">
+        <h2>Historial de inicios de ruta <span class="hint">(más reciente arriba)</span></h2>
+        <div id="eventStack" class="event-stack"></div>
+      </section>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

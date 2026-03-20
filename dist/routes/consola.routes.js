@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.consolaRoutes = void 0;
+const express_1 = require("express");
+const requireApiKey_1 = require("../middleware/requireApiKey");
+const consola_controller_1 = require("../controllers/consola.controller");
+exports.consolaRoutes = (0, express_1.Router)();
+exports.consolaRoutes.use(requireApiKey_1.requireApiKey);
+exports.consolaRoutes.get("/unidades", consola_controller_1.getUnidadesConsola);
+exports.consolaRoutes.get("/telemetria/:clave", consola_controller_1.getTelemetriaConsola);
+exports.consolaRoutes.get("/eventos", consola_controller_1.getEventosConsola);
+exports.consolaRoutes.post("/inicio-ruta", consola_controller_1.postInicioRuta);
