@@ -39,11 +39,15 @@ async function getTelemetriaConsola(req, res) {
         if (!clave || typeof clave !== "string") {
             return res.status(400).json({ ok: false, error: "clave inválida" });
         }
-        const telemetria = await (0, telemetria_service_1.getTelemetriaPorClave)(clave);
-        if (!telemetria) {
+        const data = await (0, telemetria_service_1.getTelemetriaPorClave)(clave);
+        if (!data) {
             return res.status(404).json({ ok: false, error: "unidad no encontrada" });
         }
-        return res.json({ ok: true, telemetria });
+        return res.json({
+            ok: true,
+            telemetria: data.telemetria,
+            raspberry: data.raspberry,
+        });
     }
     catch (error) {
         console.error("[consola] getTelemetria:", error);

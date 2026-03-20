@@ -15,11 +15,25 @@
   <body>
     <div class="app">
       <header class="header">
-        <h1>Consola autotanque</h1>
-        <p class="sub">
-          Lectura en vivo cada 0,5 s (no crea historial). El botón guarda un
-          <strong>Inicio de ruta</strong> en la base de datos.
-        </p>
+        <div class="header-top">
+          <div class="header-titles">
+            <h1>Consola autotanque</h1>
+            <p class="sub">
+              Lectura en vivo cada 0,5 s (no crea historial). El botón guarda un
+              <strong>Inicio de ruta</strong> en la base de datos.
+            </p>
+          </div>
+          <div
+            id="raspberryIndicator"
+            class="raspberry-pill"
+            role="status"
+            aria-live="polite"
+            title="Verde: la Raspberry envía datos al servidor hace poco. Rojo: datos viejos o sin envío."
+          >
+            <span class="dot" id="raspberryDot"></span>
+            <span class="raspberry-text" id="raspberryText">Raspberry: …</span>
+          </div>
+        </div>
         <div class="config-row">
           <label>
             Unidad

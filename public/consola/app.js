@@ -12,6 +12,8 @@
   const btnInicioRuta = document.getElementById("btnInicioRuta");
   const statusMsg = document.getElementById("statusMsg");
   const eventStack = document.getElementById("eventStack");
+  const raspberryIndicator = document.getElementById("raspberryIndicator");
+  const raspberryText = document.getElementById("raspberryText");
 
   /** @type {{ telemetria: object | null, clave: string }} */
   let snapshot = { telemetria: null, clave: "" };
@@ -40,6 +42,31 @@
   function fmtVel(v) {
     if (v === null || v === undefined || Number.isNaN(Number(v))) return "0";
     return Number(v).toFixed(1);
+  }
+
+  function setRaspberryIndicator(r) {
+    if (!raspberryIndicator || !raspberryText) return;
+    raspberryIndicator.classList.remove("ok", "warn", "bad");
+    if (!r || r.sin_fila_gps) {
+      raspberryIndicator.classList.add("bad");
+      raspberryText.textContent = "Raspberry: sin datos en servidor";
+      return;
+    }
+    if (r.recibiendo_datos) {
+      raspberryIndicator.classList.add("ok");
+      const s = r.segundos_desde_ultimo_envio;
+      raspberryText.textContent =
+        s != null
+          ? `Raspberry: enviando (hace ${s}s · umbral ${r.umbral_segundos}s)`
+          : "Raspberry: enviando";
+      return;
+    }
+    raspberryIndicator.classList.add("bad");
+    const s = r.segundos_desde_ultimo_envio;
+    raspberryText.textContent =
+      s != null
+        ? `Raspberry: sin datos recientes (hace ${s}s · umbral ${r.umbral_segundos}s)`
+        : "Raspberry: datos desactualizados";
   }
 
   async function fetchJson(url, options) {
@@ -86,6 +113,8 @@
       const t = data.telemetria;
       snapshot = { telemetria: t, clave };
 
+      setRaspberryIndicator(data.raspberry);
+
       gCarb.textContent = fmtPct(t.nivel_carburacion);
       gAlm.textContent = fmtPct(t.nivel_almacen);
       gVel.textContent = fmtVel(t.velocidad_kmh);
@@ -103,6 +132,7 @@
         return;
       }
       setStatus("Sin telemetría: " + (e.message || String(e)), "err");
+      setRaspberryIndicator(null);
     }
   }
 
