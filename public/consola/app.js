@@ -305,7 +305,10 @@
         }
       );
       pedidoStack.innerHTML = "";
-      const list = data.pedidos || [];
+      // Mostrar solo los que tienen botones (recibido/validando). Los cancelados los omitimos por ahora.
+      const list = (data.pedidos || []).filter(
+        (p) => p.estado === "recibido" || p.estado === "validando"
+      );
       if (!list.length) {
         pedidoStack.innerHTML =
           '<p class="empty-stack">Aún no hay pedidos guardados.</p>';
