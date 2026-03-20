@@ -23,6 +23,7 @@
   let pollTimer = null;
   let saving = false;
   let pedidoSaving = false;
+  let pedidoEstadoSaving = false;
 
   const pedidoModal = document.getElementById("pedidoModal");
   const pedidoForm = document.getElementById("pedidoForm");
@@ -243,11 +244,26 @@
     if (selTipoOrigen) selTipoOrigen.value = "casa";
   }
 
-  function renderPedidoCard(p) {
+  function estadoLabel(e) {
+    if (e === "recibido") return "Solicitud";
+    if (e === "validando") return "En proceso";
+    if (e === "convertido_servicio") return "Terminados";
+    if (e === "cancelado") return "Cancelado";
+    return String(e || "—");
+  }
+
+  function renderPedidoCard(p, hayValidando) {
     const card = document.createElement("article");
-    card.className = "event-card";
+    const inProceso = p.estado === "validando";
+    card.className = "event-card" + (inProceso ? " in-proceso" : "");
+
+    const canMover = p.estado === "recibido" || p.estado === "validando";
+    const isRecibido = p.estado === "recibido";
+    const primaryLabel = isRecibido ? "En proceso" : "Terminados";
+    const primaryDisabled = isRecibido && hayValidando;
+
     card.innerHTML = `
-      <h3>Pedido</h3>
+      <h3>${escapeHtml(estadoLabel(p.estado))}</h3>
       <div class="ts">Registrado: ${escapeHtml(p.created_at)} · ID #${escapeHtml(
         String(p.id)
       )}</div>
@@ -256,8 +272,22 @@
         <dt>Teléfono</dt><dd>${escapeHtml(p.telefono_origen)}</dd>
         <dt>Dirección</dt><dd>${escapeHtml(p.direccion_texto)}</dd>
         <dt>Litros</dt><dd>${escapeHtml(String(p.litros_solicitados ?? "—"))}</dd>
-        <dt>Estado</dt><dd>${escapeHtml(p.estado)}</dd>
+        <dt>Estado</dt><dd>${escapeHtml(estadoLabel(p.estado))}</dd>
       </dl>
+      ${
+        canMover
+          ? `<div class="pedido-actions">
+               <button type="button" class="btn primary" data-action="avanzar" data-pedido-id="${escapeHtml(
+                 String(p.id)
+               )}" ${primaryDisabled ? "disabled" : ""}>${escapeHtml(
+                 primaryLabel
+               )}</button>
+               <button type="button" class="btn secondary" data-action="cancelar" data-pedido-id="${escapeHtml(
+                 String(p.id)
+               )}">Cancelar</button>
+             </div>`
+          : ""
+      }
     `;
     return card;
   }
@@ -265,9 +295,15 @@
   async function cargarPedidos() {
     try {
       if (!pedidoStack) return;
-      const data = await fetchJson("/api/consola/pedidos", {
+      const unidadClave = selUnidad?.value;
+      if (!unidadClave) return;
+
+      const data = await fetchJson(
+        "/api/consola/pedidos?unidad_clave=" + encodeURIComponent(unidadClave),
+        {
         headers: apiHeaders(),
-      });
+        }
+      );
       pedidoStack.innerHTML = "";
       const list = data.pedidos || [];
       if (!list.length) {
@@ -275,8 +311,10 @@
           '<p class="empty-stack">Aún no hay pedidos guardados.</p>';
         return;
       }
+
+      const hayValidando = list.some((p) => p.estado === "validando");
       for (const p of list) {
-        pedidoStack.appendChild(renderPedidoCard(p));
+        pedidoStack.appendChild(renderPedidoCard(p, hayValidando));
       }
     } catch (e) {
       setStatus(e.message || String(e), "err");
@@ -289,6 +327,7 @@
     if (!inpClienteNombre || !inpTelefonoOrigen || !inpCp || !inpLitrosSolicitados) return;
 
     const body = {
+      unidad_clave: selUnidad?.value,
       cliente_nombre: inpClienteNombre.value,
       telefono_origen: inpTelefonoOrigen.value,
       colonia: inpColonia.value,
@@ -302,6 +341,7 @@
     };
 
     const required = [
+      body.unidad_clave,
       body.cliente_nombre,
       body.telefono_origen,
       body.colonia,
@@ -489,6 +529,91 @@
     pedidoForm.addEventListener("submit", (e) => {
       e.preventDefault();
       guardarPedido();
+    });
+  }
+
+  if (pedidoStack) {
+    pedidoStack.addEventListener("click", async (e) => {
+      const btn = e.target && e.target.closest
+        ? e.target.closest("button[data-action][data-pedido-id]")
+        : null;
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const pedidoId = btn.dataset.pedidoId;
+      if (!action || !pedidoId) return;
+      if (pedidoEstadoSaving) return;
+
+      const unidadClave = selUnidad?.value;
+      if (!unidadClave) {
+        setStatus("Selecciona una unidad para operar el pedido.", "err");
+        return;
+      }
+
+      const t = snapshot.telemetria;
+      if (!t) {
+        setStatus("Sin snapshot de telemetría: espera la lectura.", "err");
+        return;
+      }
+
+      const nivel_carburacion = t.nivel_carburacion;
+      const nivel_almacen = t.nivel_almacen;
+
+      pedidoEstadoSaving = true;
+      try {
+        setStatus("Actualizando estado…", "");
+        if (action === "avanzar") {
+          await fetchJson(`/api/consola/pedidos/${encodeURIComponent(pedidoId)}/avanzar`, {
+            method: "POST",
+            headers: apiHeaders(),
+            body: JSON.stringify({
+              unidad_clave: unidadClave,
+              nivel_carburacion,
+              nivel_almacen,
+            }),
+          });
+          setStatus("Estado actualizado.", "ok");
+          await cargarPedidos();
+          return;
+        }
+
+        if (action === "cancelar") {
+          const razon = window.prompt(
+            "Razón de cancelación (máx 250 caracteres):"
+          );
+          if (razon == null) return; // canceló el prompt
+          const razonTrim = String(razon).trim();
+          if (!razonTrim) {
+            setStatus("La razón de cancelación es obligatoria.", "err");
+            return;
+          }
+          if (razonTrim.length > 250) {
+            setStatus("La razón excede 250 caracteres.", "err");
+            return;
+          }
+
+          await fetchJson(`/api/consola/pedidos/${encodeURIComponent(pedidoId)}/cancelar`, {
+            method: "POST",
+            headers: apiHeaders(),
+            body: JSON.stringify({
+              unidad_clave: unidadClave,
+              razon_cancelacion: razonTrim,
+              nivel_carburacion,
+              nivel_almacen,
+            }),
+          });
+          setStatus("Pedido cancelado.", "ok");
+          await cargarPedidos();
+          return;
+        }
+      } catch (e) {
+        let msg = e.message || String(e);
+        if (e.data?.hint) msg += " — " + e.data.hint;
+        else if (e.data?.detail) msg += " (" + e.data.detail + ")";
+        setStatus(msg, "err");
+      } finally {
+        pedidoEstadoSaving = false;
+      }
     });
   }
 

@@ -11,4 +11,6 @@ exports.consolaRoutes.get("/telemetria/:clave", consola_controller_1.getTelemetr
 exports.consolaRoutes.get("/eventos", consola_controller_1.getEventosConsola);
 exports.consolaRoutes.get("/pedidos", consola_controller_1.getPedidosConsola);
 exports.consolaRoutes.post("/pedidos", consola_controller_1.postPedidoConsola);
+exports.consolaRoutes.post("/pedidos/:id/avanzar", consola_controller_1.postPedidoAvanzarConsola);
+exports.consolaRoutes.post("/pedidos/:id/cancelar", consola_controller_1.postPedidoCancelarConsola);
 exports.consolaRoutes.post("/inicio-ruta", consola_controller_1.postInicioRuta);

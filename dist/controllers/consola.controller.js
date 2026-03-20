@@ -6,6 +6,8 @@ exports.getEventosConsola = getEventosConsola;
 exports.postInicioRuta = postInicioRuta;
 exports.getPedidosConsola = getPedidosConsola;
 exports.postPedidoConsola = postPedidoConsola;
+exports.postPedidoAvanzarConsola = postPedidoAvanzarConsola;
+exports.postPedidoCancelarConsola = postPedidoCancelarConsola;
 const unidades_service_1 = require("../services/unidades.service");
 const telemetria_service_1 = require("../services/telemetria.service");
 const eventosInicioRuta_service_1 = require("../services/eventosInicioRuta.service");
@@ -240,9 +242,20 @@ async function postInicioRuta(req, res) {
 }
 async function getPedidosConsola(req, res) {
     try {
+        const unidadClaveRaw = req.query.unidad_clave;
+        if (!unidadClaveRaw || typeof unidadClaveRaw !== "string") {
+            return res.status(400).json({
+                ok: false,
+                error: "query unidad_clave requerido",
+            });
+        }
         const limitRaw = req.query.limit;
         const limit = typeof limitRaw === "string" ? Number(limitRaw) : Number(limitRaw ?? 100);
-        const pedidos = await (0, pedidos_service_1.listPedidosParaConsola)(Number.isFinite(limit) ? limit : 100);
+        const unidad = await (0, unidades_service_1.getUnidadByClave)(unidadClaveRaw);
+        if (!unidad) {
+            return res.status(404).json({ ok: false, error: "unidad no encontrada" });
+        }
+        const pedidos = await (0, pedidos_service_1.listPedidosParaConsolaUnidad)(unidad.id, Number.isFinite(limit) ? limit : 100);
         return res.json({ ok: true, pedidos });
     }
     catch (error) {
@@ -252,7 +265,10 @@ async function getPedidosConsola(req, res) {
 }
 async function postPedidoConsola(req, res) {
     try {
-        const { cliente_nombre, telefono_origen, colonia, calle, cp, numero_exterior, numero_interior, tipo_origen, nombre_empresa, litros_solicitados, } = req.body ?? {};
+        const { unidad_clave, cliente_nombre, telefono_origen, colonia, calle, cp, numero_exterior, numero_interior, tipo_origen, nombre_empresa, litros_solicitados, } = req.body ?? {};
+        if (!unidad_clave || typeof unidad_clave !== "string") {
+            return res.status(400).json({ ok: false, error: "unidad_clave requerido" });
+        }
         const clienteNombre = toTrimmedString(cliente_nombre);
         const telefono = toTrimmedString(telefono_origen);
         const coloniaTxt = toTrimmedString(colonia);
@@ -263,6 +279,10 @@ async function postPedidoConsola(req, res) {
         const nombreEmpresaRaw = toTrimmedString(nombre_empresa);
         const cpNorm = normalizeCpToInt(cp);
         const litros = parseLitrosEnteroPositivo(litros_solicitados);
+        const unidad = await (0, unidades_service_1.getUnidadByClave)(unidad_clave);
+        if (!unidad) {
+            return res.status(400).json({ ok: false, error: "unidad_clave no existe" });
+        }
         if (!clienteNombre ||
             !telefono ||
             !coloniaTxt ||
@@ -296,6 +316,7 @@ async function postPedidoConsola(req, res) {
         const direccion_texto = `${tipoLabel} - ${nombreEmpresaNorm} | ${calleTxt} No. ${numeroExteriorTxt} Int. ${numeroInteriorNorm}, ${coloniaTxt}, CP ${cpNorm}`;
         const prioridad = prioridadDesdeLitros(litros);
         const pedido = await (0, pedidos_service_1.insertPedido)({
+            unidad_db_id: unidad.id,
             telefono_origen: telefono,
             cliente_nombre: clienteNombre,
             direccion_texto,
@@ -314,5 +335,81 @@ async function postPedidoConsola(req, res) {
     catch (error) {
         console.error("[consola] postPedidoConsola:", error);
         return res.status(500).json({ ok: false, error: "Error guardando pedido" });
+    }
+}
+async function postPedidoAvanzarConsola(req, res) {
+    try {
+        const { id } = req.params;
+        const pedidoId = Number(id);
+        if (!Number.isFinite(pedidoId)) {
+            return res.status(400).json({ ok: false, error: "pedido id inválido" });
+        }
+        const { unidad_clave, nivel_carburacion, nivel_almacen, } = req.body ?? {};
+        if (!unidad_clave || typeof unidad_clave !== "string") {
+            return res.status(400).json({ ok: false, error: "unidad_clave requerido" });
+        }
+        const unidad = await (0, unidades_service_1.getUnidadByClave)(unidad_clave);
+        if (!unidad) {
+            return res.status(400).json({ ok: false, error: "unidad_clave no existe" });
+        }
+        const nivelCarb = toFiniteNumber(nivel_carburacion);
+        const nivelAlm = toFiniteNumber(nivel_almacen);
+        await (0, pedidos_service_1.avanzarPedidoEstado)({
+            pedido_id: String(pedidoId),
+            unidad_db_id: unidad.id,
+            nivel_carburacion: nivelCarb,
+            nivel_almacen: nivelAlm,
+        });
+        return res.json({ ok: true });
+    }
+    catch (error) {
+        console.error("[consola] postPedidoAvanzarConsola:", error);
+        const e = error;
+        return res.status(e.status && Number.isFinite(e.status) ? e.status : 500).json({
+            ok: false,
+            error: e.message || "Error cambiando estado del pedido",
+        });
+    }
+}
+async function postPedidoCancelarConsola(req, res) {
+    try {
+        const { id } = req.params;
+        const pedidoId = Number(id);
+        if (!Number.isFinite(pedidoId)) {
+            return res.status(400).json({ ok: false, error: "pedido id inválido" });
+        }
+        const { unidad_clave, razon_cancelacion, nivel_carburacion, nivel_almacen, } = req.body ?? {};
+        if (!unidad_clave || typeof unidad_clave !== "string") {
+            return res.status(400).json({ ok: false, error: "unidad_clave requerido" });
+        }
+        const unidad = await (0, unidades_service_1.getUnidadByClave)(unidad_clave);
+        if (!unidad) {
+            return res.status(400).json({ ok: false, error: "unidad_clave no existe" });
+        }
+        const razon = toTrimmedString(razon_cancelacion);
+        if (!razon) {
+            return res.status(400).json({ ok: false, error: "razón de cancelación requerida" });
+        }
+        if (razon.length > 250) {
+            return res.status(400).json({ ok: false, error: "razón excede 250 caracteres" });
+        }
+        const nivelCarb = toFiniteNumber(nivel_carburacion);
+        const nivelAlm = toFiniteNumber(nivel_almacen);
+        await (0, pedidos_service_1.cancelarPedido)({
+            pedido_id: String(pedidoId),
+            unidad_db_id: unidad.id,
+            razon_cancelacion: razon,
+            nivel_carburacion: nivelCarb,
+            nivel_almacen: nivelAlm,
+        });
+        return res.json({ ok: true });
+    }
+    catch (error) {
+        console.error("[consola] postPedidoCancelarConsola:", error);
+        const e = error;
+        return res.status(e.status && Number.isFinite(e.status) ? e.status : 500).json({
+            ok: false,
+            error: e.message || "Error cancelando el pedido",
+        });
     }
 }

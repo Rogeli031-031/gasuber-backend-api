@@ -5,6 +5,8 @@ import {
   getTelemetriaConsola,
   getEventosConsola,
   getPedidosConsola,
+  postPedidoAvanzarConsola,
+  postPedidoCancelarConsola,
   postPedidoConsola,
   postInicioRuta,
 } from "../controllers/consola.controller";
@@ -18,4 +20,6 @@ consolaRoutes.get("/telemetria/:clave", getTelemetriaConsola);
 consolaRoutes.get("/eventos", getEventosConsola);
 consolaRoutes.get("/pedidos", getPedidosConsola);
 consolaRoutes.post("/pedidos", postPedidoConsola);
+consolaRoutes.post("/pedidos/:id/avanzar", postPedidoAvanzarConsola);
+consolaRoutes.post("/pedidos/:id/cancelar", postPedidoCancelarConsola);
 consolaRoutes.post("/inicio-ruta", postInicioRuta);

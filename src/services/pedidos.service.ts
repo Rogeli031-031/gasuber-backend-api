@@ -1,6 +1,7 @@
 import { db } from "../config/db";
 
 export type PedidoInsertInput = {
+  unidad_db_id: string;
   telefono_origen: string;
   cliente_nombre: string;
   direccion_texto: string;
@@ -17,6 +18,7 @@ export type PedidoInsertInput = {
 
 export type PedidoConsola = {
   id: string;
+  unidad_db_id?: string | null;
   telefono_origen: string;
   cliente_nombre: string | null;
   direccion_texto: string;
@@ -37,6 +39,7 @@ function toNullableNum(v: unknown): number | null {
 export async function insertPedido(input: PedidoInsertInput) {
   const { rows } = await db.query(
     `INSERT INTO pedidos (
+       unidad_db_id,
        telefono_origen,
        cliente_nombre,
        direccion_texto,
@@ -50,8 +53,9 @@ export async function insertPedido(input: PedidoInsertInput) {
        tipo_origen,
        nombre_empresa
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING id,
+               unidad_db_id,
                telefono_origen,
                cliente_nombre,
                direccion_texto,
@@ -62,6 +66,7 @@ export async function insertPedido(input: PedidoInsertInput) {
                tipo_origen,
                nombre_empresa`,
     [
+      input.unidad_db_id,
       input.telefono_origen,
       input.cliente_nombre,
       input.direccion_texto,
@@ -82,6 +87,7 @@ export async function insertPedido(input: PedidoInsertInput) {
 
   return {
     id: String(r.id),
+    unidad_db_id: r.unidad_db_id != null ? String(r.unidad_db_id) : null,
     telefono_origen: String(r.telefono_origen),
     cliente_nombre: r.cliente_nombre != null ? String(r.cliente_nombre) : null,
     direccion_texto: String(r.direccion_texto),
@@ -95,11 +101,15 @@ export async function insertPedido(input: PedidoInsertInput) {
   } satisfies PedidoConsola;
 }
 
-export async function listPedidosParaConsola(limit = 100) {
+export async function listPedidosParaConsolaUnidad(
+  unidad_db_id: string,
+  limit = 100
+) {
   const lim = Math.min(Math.max(1, limit), 200);
 
   const { rows } = await db.query(
     `SELECT id::text AS id,
+            unidad_db_id::text AS unidad_db_id,
             telefono_origen,
             cliente_nombre,
             direccion_texto,
@@ -110,13 +120,19 @@ export async function listPedidosParaConsola(limit = 100) {
             tipo_origen,
             nombre_empresa
      FROM pedidos
-     ORDER BY litros_solicitados DESC NULLS LAST, created_at DESC, id DESC
+     WHERE (unidad_db_id = $1 OR unidad_db_id IS NULL)
+       AND estado IN ('recibido','validando','cancelado')
+     ORDER BY (estado = 'cancelado')::int ASC,
+              litros_solicitados DESC NULLS LAST,
+              created_at DESC,
+              id DESC
      LIMIT $1`,
-    [lim]
+    [unidad_db_id, lim]
   );
 
   return rows.map((r) => ({
     id: String(r.id),
+    unidad_db_id: r.unidad_db_id != null ? String(r.unidad_db_id) : null,
     telefono_origen: String(r.telefono_origen),
     cliente_nombre: r.cliente_nombre != null ? String(r.cliente_nombre) : null,
     direccion_texto: String(r.direccion_texto),
@@ -128,5 +144,179 @@ export async function listPedidosParaConsola(limit = 100) {
     nombre_empresa:
       r.nombre_empresa != null ? String(r.nombre_empresa) : null,
   })) satisfies PedidoConsola[];
+}
+
+function toFiniteNullableNumber(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function avanzarPedidoEstado(args: {
+  pedido_id: string;
+  unidad_db_id: string;
+  nivel_carburacion: number | null;
+  nivel_almacen: number | null;
+}) {
+  const pedidoId = Number(args.pedido_id);
+  const unidadId = Number(args.unidad_db_id);
+  if (!Number.isFinite(pedidoId) || !Number.isFinite(unidadId)) {
+    throw new Error("pedido_id o unidad_db_id inválidos");
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query<{
+      id: string;
+      estado: string;
+      unidad_db_id: string | null;
+    }>(
+      `SELECT id::text AS id, estado::text AS estado, unidad_db_id::text AS unidad_db_id
+       FROM pedidos
+       WHERE id = $1
+       FOR UPDATE`,
+      [pedidoId]
+    );
+    const p = rows[0];
+    if (!p) throw new Error("pedido no encontrado");
+    if (p.unidad_db_id == null || p.unidad_db_id === "") {
+      // Compatibilidad: pedidos antiguos sin unidad asignada.
+      await client.query(`UPDATE pedidos SET unidad_db_id = $1 WHERE id = $2`, [
+        unidadId,
+        pedidoId,
+      ]);
+    } else if (Number(p.unidad_db_id) !== unidadId) {
+      throw new Error("pedido no pertenece a la unidad seleccionada");
+    }
+
+    const estadoActual = p.estado;
+    let estadoNuevo: string;
+    if (estadoActual === "recibido") {
+      const { rows: conflictRows } = await client.query<{
+        ok: number;
+      }>(
+        `SELECT 1 as ok
+         FROM pedidos
+         WHERE (unidad_db_id = $1 OR unidad_db_id IS NULL)
+           AND estado = 'validando'
+           AND id <> $2
+         LIMIT 1
+         FOR UPDATE`,
+        [unidadId, pedidoId]
+      );
+      if (conflictRows.length > 0) {
+        throw Object.assign(new Error("Ya existe una solicitud en En proceso para esta unidad."), {
+          status: 409,
+        });
+      }
+      estadoNuevo = "validando";
+    } else if (estadoActual === "validando") {
+      estadoNuevo = "convertido_servicio";
+    } else {
+      throw Object.assign(
+        new Error("Transición no permitida (solo recibidos->validando y validando->convertido_servicio)."),
+        { status: 400 }
+      );
+    }
+
+    await client.query(`UPDATE pedidos SET estado = $1 WHERE id = $2`, [
+      estadoNuevo,
+      pedidoId,
+    ]);
+
+    const nivelCarb = toFiniteNullableNumber(args.nivel_carburacion);
+    const nivelAlm = toFiniteNullableNumber(args.nivel_almacen);
+
+    await client.query(
+      `INSERT INTO pedido_estado_historial (
+         pedido_id, unidad_db_id, estado_anterior, estado_nuevo,
+         nivel_carburacion, nivel_almacen
+       )
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [pedidoId, unidadId, estadoActual, estadoNuevo, nivelCarb, nivelAlm]
+    );
+
+    await client.query("COMMIT");
+    return { pedido_id: String(pedidoId), estado_anterior: estadoActual, estado_nuevo: estadoNuevo };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function cancelarPedido(args: {
+  pedido_id: string;
+  unidad_db_id: string;
+  razon_cancelacion: string;
+  nivel_carburacion: number | null;
+  nivel_almacen: number | null;
+}) {
+  const pedidoId = Number(args.pedido_id);
+  const unidadId = Number(args.unidad_db_id);
+  if (!Number.isFinite(pedidoId) || !Number.isFinite(unidadId)) {
+    throw new Error("pedido_id o unidad_db_id inválidos");
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query<{
+      id: string;
+      estado: string;
+      unidad_db_id: string | null;
+    }>(
+      `SELECT id::text AS id, estado::text AS estado, unidad_db_id::text AS unidad_db_id
+       FROM pedidos
+       WHERE id = $1
+       FOR UPDATE`,
+      [pedidoId]
+    );
+    const p = rows[0];
+    if (!p) throw new Error("pedido no encontrado");
+    if (p.unidad_db_id == null || p.unidad_db_id === "") {
+      await client.query(`UPDATE pedidos SET unidad_db_id = $1 WHERE id = $2`, [
+        unidadId,
+        pedidoId,
+      ]);
+    } else if (Number(p.unidad_db_id) !== unidadId) {
+      throw new Error("pedido no pertenece a la unidad seleccionada");
+    }
+
+    const estadoActual = p.estado;
+    if (estadoActual === "cancelado" || estadoActual === "convertido_servicio") {
+      throw Object.assign(new Error("No se puede cancelar este pedido."), { status: 400 });
+    }
+    if (estadoActual !== "recibido" && estadoActual !== "validando") {
+      throw Object.assign(new Error("Transición no permitida (solo recibidos y validando)."), { status: 400 });
+    }
+
+    await client.query(`UPDATE pedidos SET estado = 'cancelado' WHERE id = $1`, [pedidoId]);
+
+    const nivelCarb = toFiniteNullableNumber(args.nivel_carburacion);
+    const nivelAlm = toFiniteNullableNumber(args.nivel_almacen);
+
+    await client.query(
+      `INSERT INTO pedido_estado_historial (
+         pedido_id, unidad_db_id, estado_anterior, estado_nuevo,
+         razon_cancelacion,
+         nivel_carburacion, nivel_almacen
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [pedidoId, unidadId, estadoActual, "cancelado", args.razon_cancelacion, nivelCarb, nivelAlm]
+    );
+
+    await client.query("COMMIT");
+    return { pedido_id: String(pedidoId), estado_anterior: estadoActual, estado_nuevo: "cancelado" };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
