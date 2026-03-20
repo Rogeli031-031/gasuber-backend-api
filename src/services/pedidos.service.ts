@@ -126,7 +126,7 @@ export async function listPedidosParaConsolaUnidad(
               litros_solicitados DESC NULLS LAST,
               created_at DESC,
               id DESC
-     LIMIT $1`,
+     LIMIT $2`,
     [unidad_db_id, lim]
   );
 

@@ -90,7 +90,7 @@ async function listPedidosParaConsolaUnidad(unidad_db_id, limit = 100) {
               litros_solicitados DESC NULLS LAST,
               created_at DESC,
               id DESC
-     LIMIT $1`, [unidad_db_id, lim]);
+     LIMIT $2`, [unidad_db_id, lim]);
     return rows.map((r) => ({
         id: String(r.id),
         unidad_db_id: r.unidad_db_id != null ? String(r.unidad_db_id) : null,
