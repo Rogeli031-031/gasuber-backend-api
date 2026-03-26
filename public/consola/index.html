@@ -10,6 +10,12 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -83,6 +89,18 @@
           Pedido
         </button>
         <div class="status" id="statusMsg"></div>
+      </section>
+
+      <section class="map-layout" aria-label="Mapa y pedido actual">
+        <article class="panel-wrap map-panel">
+          <h2>Ruta en tiempo real <span class="hint">(OpenStreetMap + Leaflet)</span></h2>
+          <div id="mapRuta" class="map-ruta" aria-label="Mapa de ubicación actual"></div>
+          <p id="mapHint" class="hint map-hint">Esperando telemetría para ubicar la unidad.</p>
+        </article>
+        <article class="panel-wrap pedido-actual-panel">
+          <h2>Pedido actual / seleccionado</h2>
+          <div id="pedidoActualCard" class="pedido-actual-card"></div>
+        </article>
       </section>
 
       <section class="panel-wrap" hidden>
@@ -162,6 +180,11 @@
         </div>
       </div>
     </div>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
     <script src="./app.js"></script>
   </body>
 </html>

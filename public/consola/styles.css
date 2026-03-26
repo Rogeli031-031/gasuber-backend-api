@@ -298,6 +298,10 @@ input[type="password"] {
   color: var(--cyan);
 }
 
+.panel-wrap {
+  margin-bottom: 1.25rem;
+}
+
 .hint {
   font-size: 0.7rem;
   color: var(--muted);
@@ -333,6 +337,11 @@ input[type="password"] {
 .event-card.in-proceso h3 {
   color: var(--amber);
   text-shadow: 0 0 12px rgba(212, 167, 44, 0.35);
+}
+
+.event-card.pedido-selected {
+  border-left-color: #79c0ff;
+  box-shadow: 0 0 0 1px rgba(121, 192, 255, 0.28), 0 0 18px rgba(121, 192, 255, 0.12);
 }
 
 .event-card .ts {
@@ -424,4 +433,83 @@ input[type="password"] {
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.map-panel,
+.pedido-actual-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem;
+}
+
+.map-ruta {
+  width: 100%;
+  height: 360px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #263548;
+  background: #0b1118;
+}
+
+.map-hint {
+  display: block;
+  margin-top: 0.55rem;
+}
+
+.pedido-actual-card {
+  min-height: 360px;
+  border: 1px solid #243142;
+  border-radius: 10px;
+  background: linear-gradient(165deg, #111a25 0%, #0c131c 100%);
+  padding: 0.9rem;
+}
+
+.pedido-actual-card dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 0.85rem;
+  font-size: 0.84rem;
+}
+
+.pedido-actual-card dt {
+  color: var(--muted);
+}
+
+.pedido-actual-card dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.pedido-empty-title {
+  margin: 0;
+  font-family: Orbitron, sans-serif;
+  color: var(--cyan);
+  letter-spacing: 0.05em;
+}
+
+.pedido-empty-sub {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+  .map-ruta {
+    height: 300px;
+  }
+  .pedido-actual-card {
+    min-height: 300px;
+  }
 }

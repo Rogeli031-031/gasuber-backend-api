@@ -14,6 +14,9 @@
   const statusMsg = document.getElementById("statusMsg");
   const eventStack = document.getElementById("eventStack");
   const pedidoStack = document.getElementById("pedidoStack");
+  const pedidoActualCard = document.getElementById("pedidoActualCard");
+  const mapHint = document.getElementById("mapHint");
+  const mapRuta = document.getElementById("mapRuta");
   const raspberryIndicator = document.getElementById("raspberryIndicator");
   const raspberryText = document.getElementById("raspberryText");
   const raspberryHint = document.getElementById("raspberryHint");
@@ -24,6 +27,12 @@
   let saving = false;
   let pedidoSaving = false;
   let pedidoEstadoSaving = false;
+  let pedidosCache = [];
+  let selectedPedidoId = null;
+  let map = null;
+  let unidadMarker = null;
+  let clienteMarker = null;
+  let mapCenteredOnce = false;
 
   const pedidoModal = document.getElementById("pedidoModal");
   const pedidoForm = document.getElementById("pedidoForm");
@@ -73,6 +82,141 @@
   function fmtVel(v) {
     if (v === null || v === undefined || Number.isNaN(Number(v))) return "0";
     return Number(v).toFixed(1);
+  }
+
+  function hasValidCoords(lat, lon) {
+    const nLat = Number(lat);
+    const nLon = Number(lon);
+    if (!Number.isFinite(nLat) || !Number.isFinite(nLon)) return false;
+    return !(nLat === 0 && nLon === 0);
+  }
+
+  function getPedidoCoords(pedido) {
+    if (!pedido || typeof pedido !== "object") return null;
+    const latRaw =
+      pedido.cliente_lat ??
+      pedido.clienteLat ??
+      pedido.lat_cliente ??
+      pedido.latCliente ??
+      pedido.lat;
+    const lonRaw =
+      pedido.cliente_lon ??
+      pedido.clienteLng ??
+      pedido.cliente_lng ??
+      pedido.lon_cliente ??
+      pedido.lng_cliente ??
+      pedido.lon ??
+      pedido.lng;
+    if (!hasValidCoords(latRaw, lonRaw)) return null;
+    return { lat: Number(latRaw), lon: Number(lonRaw) };
+  }
+
+  function ensureMap() {
+    if (map || !mapRuta || !window.L) return;
+    map = L.map(mapRuta, {
+      zoomControl: true,
+      attributionControl: true,
+    }).setView([19.043, -98.198], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap",
+    }).addTo(map);
+  }
+
+  function updateMapUnidad(t) {
+    ensureMap();
+    if (!map) return;
+    if (!t || !hasValidCoords(t.lat, t.lon)) {
+      if (mapHint) mapHint.textContent = "Sin fix GPS: la unidad reporta coordenadas 0,0.";
+      return;
+    }
+    const lat = Number(t.lat);
+    const lon = Number(t.lon);
+    const nextLatLng = [lat, lon];
+    if (!unidadMarker) {
+      unidadMarker = L.marker(nextLatLng, { title: "Unidad / pipa" }).addTo(map);
+      unidadMarker.bindPopup("Unidad / pipa");
+    } else {
+      unidadMarker.setLatLng(nextLatLng);
+    }
+    if (!mapCenteredOnce) {
+      map.setView(nextLatLng, 15, { animate: false });
+      mapCenteredOnce = true;
+    } else {
+      map.panTo(nextLatLng, { animate: false });
+    }
+    if (mapHint) mapHint.textContent = "Ubicación actual de la unidad actualizada en vivo.";
+  }
+
+  function updateMapCliente(pedido) {
+    ensureMap();
+    if (!map) return;
+    const coords = getPedidoCoords(pedido);
+    if (!coords) {
+      if (clienteMarker) {
+        map.removeLayer(clienteMarker);
+        clienteMarker = null;
+      }
+      return;
+    }
+    const point = [coords.lat, coords.lon];
+    const popup = pedido?.cliente_nombre
+      ? `Cliente: ${escapeHtml(pedido.cliente_nombre)}`
+      : "Ubicación cliente";
+    if (!clienteMarker) {
+      clienteMarker = L.marker(point, { title: "Cliente" }).addTo(map);
+    } else {
+      clienteMarker.setLatLng(point);
+    }
+    clienteMarker.bindPopup(popup);
+  }
+
+  function formatFecha(ts) {
+    if (!ts) return "—";
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString("es-MX");
+  }
+
+  function getPedidoSeleccionado() {
+    if (!pedidosCache.length) return null;
+    if (selectedPedidoId != null) {
+      const found = pedidosCache.find((p) => String(p.id) === String(selectedPedidoId));
+      if (found) return found;
+    }
+    const validando = pedidosCache.find((p) => p.estado === "validando");
+    return validando || pedidosCache[0] || null;
+  }
+
+  function renderPedidoActual(pedido) {
+    if (!pedidoActualCard) return;
+    if (!pedido) {
+      pedidoActualCard.innerHTML = `
+        <p class="pedido-empty-title">Sin pedido activo</p>
+        <p class="pedido-empty-sub">Seleccione un pedido para ver detalles.</p>
+      `;
+      updateMapCliente(null);
+      return;
+    }
+    const coords = getPedidoCoords(pedido);
+    pedidoActualCard.innerHTML = `
+      <dl>
+        <dt>ID</dt><dd>#${escapeHtml(String(pedido.id ?? "—"))}</dd>
+        <dt>Cliente</dt><dd>${escapeHtml(pedido.cliente_nombre ?? "—")}</dd>
+        <dt>Teléfono</dt><dd>${escapeHtml(pedido.telefono_origen ?? "—")}</dd>
+        <dt>Dirección</dt><dd>${escapeHtml(pedido.direccion_texto ?? "—")}</dd>
+        <dt>Litros</dt><dd>${escapeHtml(String(pedido.litros_solicitados ?? "—"))}</dd>
+        <dt>Estado</dt><dd>${escapeHtml(estadoLabel(pedido.estado))}</dd>
+        <dt>Fecha</dt><dd>${escapeHtml(formatFecha(pedido.created_at))}</dd>
+        <dt>Unidad</dt><dd>${escapeHtml(selUnidad?.value || pedido.unidad_clave || "—")}</dd>
+        <dt>Coord. cliente</dt><dd>${
+          coords
+            ? `${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`
+            : "No disponibles"
+        }</dd>
+      </dl>
+    `;
+    updateMapCliente(pedido);
   }
 
   function setRaspberryIndicator(r) {
@@ -171,6 +315,7 @@
           ? " (sin fix — coordenadas en 0)"
           : "";
       metaLine.textContent = `GPS: ${lat}°, ${lon}°${fixTxt} · nivel (compat): ${fmtPct(t.nivel)}% · placa: ${t.placa}${t.fecha ? " · último dato GPS: " + t.fecha : ""}`;
+      updateMapUnidad(t);
     } catch (e) {
       if (e.status === 401) {
         setStatus("API key no válida o no autorizada.", "err");
@@ -252,10 +397,14 @@
     return String(e || "—");
   }
 
-  function renderPedidoCard(p, hayValidando) {
+  function renderPedidoCard(p, hayValidando, isSelected) {
     const card = document.createElement("article");
     const inProceso = p.estado === "validando";
-    card.className = "event-card" + (inProceso ? " in-proceso" : "");
+    card.className =
+      "event-card" +
+      (inProceso ? " in-proceso" : "") +
+      (isSelected ? " pedido-selected" : "");
+    card.dataset.pedidoId = String(p.id);
 
     const canMover = p.estado === "recibido" || p.estado === "validando";
     const isRecibido = p.estado === "recibido";
@@ -309,16 +458,26 @@
       const list = (data.pedidos || []).filter(
         (p) => p.estado === "recibido" || p.estado === "validando"
       );
+      pedidosCache = list;
       if (!list.length) {
+        selectedPedidoId = null;
+        renderPedidoActual(null);
         pedidoStack.innerHTML =
           '<p class="empty-stack">Aún no hay pedidos guardados.</p>';
         return;
       }
 
+      if (!list.some((p) => String(p.id) === String(selectedPedidoId))) {
+        const defaultPedido = list.find((p) => p.estado === "validando") || list[0];
+        selectedPedidoId = defaultPedido ? defaultPedido.id : null;
+      }
       const hayValidando = list.some((p) => p.estado === "validando");
       for (const p of list) {
-        pedidoStack.appendChild(renderPedidoCard(p, hayValidando));
+        pedidoStack.appendChild(
+          renderPedidoCard(p, hayValidando, String(p.id) === String(selectedPedidoId))
+        );
       }
+      renderPedidoActual(getPedidoSeleccionado());
     } catch (e) {
       setStatus(e.message || String(e), "err");
     }
@@ -481,6 +640,7 @@
   selUnidad.addEventListener("change", () => {
     iniciarPoll();
     cargarEventos();
+    cargarPedidos();
     setStatus("", "");
   });
 
@@ -537,6 +697,21 @@
 
   if (pedidoStack) {
     pedidoStack.addEventListener("click", async (e) => {
+      const card = e.target && e.target.closest
+        ? e.target.closest("article[data-pedido-id]")
+        : null;
+      if (card?.dataset?.pedidoId) {
+        selectedPedidoId = card.dataset.pedidoId;
+        const pedidoSel = getPedidoSeleccionado();
+        renderPedidoActual(pedidoSel);
+        for (const n of pedidoStack.querySelectorAll("article[data-pedido-id]")) {
+          n.classList.toggle(
+            "pedido-selected",
+            String(n.dataset.pedidoId) === String(selectedPedidoId)
+          );
+        }
+      }
+
       const btn = e.target && e.target.closest
         ? e.target.closest("button[data-action][data-pedido-id]")
         : null;
@@ -623,11 +798,13 @@
   inpApiKey.value = sessionStorage.getItem(STORAGE_KEY) || "";
 
   if (inpApiKey.value.trim()) {
+    renderPedidoActual(null);
     cargarUnidades();
     cargarEventos();
     if (btnPedido) btnPedido.disabled = false;
     cargarPedidos();
   } else {
+    renderPedidoActual(null);
     setStatus("Introduce la API key y pulsa «Guardar clave».", "");
     eventStack.innerHTML =
       '<p class="empty-stack">Configura la API key para ver el historial.</p>';
