@@ -172,8 +172,12 @@ export async function avanzarPedidoEstado(args: {
       id: string;
       estado: string;
       unidad_db_id: string | null;
+      telefono_origen: string;
     }>(
-      `SELECT id::text AS id, estado::text AS estado, unidad_db_id::text AS unidad_db_id
+      `SELECT id::text AS id,
+              estado::text AS estado,
+              unidad_db_id::text AS unidad_db_id,
+              telefono_origen::text AS telefono_origen
        FROM pedidos
        WHERE id = $1
        FOR UPDATE`,
@@ -239,7 +243,12 @@ export async function avanzarPedidoEstado(args: {
     );
 
     await client.query("COMMIT");
-    return { pedido_id: String(pedidoId), estado_anterior: estadoActual, estado_nuevo: estadoNuevo };
+    return {
+      pedido_id: String(pedidoId),
+      estado_anterior: estadoActual,
+      estado_nuevo: estadoNuevo,
+      telefono_origen: String(p.telefono_origen),
+    };
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

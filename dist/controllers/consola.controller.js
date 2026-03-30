@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUnidadesConsola = getUnidadesConsola;
 exports.getTelemetriaConsola = getTelemetriaConsola;
@@ -8,10 +11,12 @@ exports.getPedidosConsola = getPedidosConsola;
 exports.postPedidoConsola = postPedidoConsola;
 exports.postPedidoAvanzarConsola = postPedidoAvanzarConsola;
 exports.postPedidoCancelarConsola = postPedidoCancelarConsola;
+const axios_1 = __importDefault(require("axios"));
 const unidades_service_1 = require("../services/unidades.service");
 const telemetria_service_1 = require("../services/telemetria.service");
 const eventosInicioRuta_service_1 = require("../services/eventosInicioRuta.service");
 const pedidos_service_1 = require("../services/pedidos.service");
+const whatsapp_service_1 = require("../services/whatsapp.service");
 function toFiniteNumber(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;
@@ -354,12 +359,30 @@ async function postPedidoAvanzarConsola(req, res) {
         }
         const nivelCarb = toFiniteNumber(nivel_carburacion);
         const nivelAlm = toFiniteNumber(nivel_almacen);
-        await (0, pedidos_service_1.avanzarPedidoEstado)({
+        const result = await (0, pedidos_service_1.avanzarPedidoEstado)({
             pedido_id: String(pedidoId),
             unidad_db_id: unidad.id,
             nivel_carburacion: nivelCarb,
             nivel_almacen: nivelAlm,
         });
+        // Aviso por WhatsApp SOLO cuando inicia (recibido -> validando).
+        // No bloquea la operación del pedido si WhatsApp falla.
+        if (result.estado_nuevo === "validando") {
+            const telefono = result.telefono_origen;
+            const text = `Tu pedido Folio #${result.pedido_id} inició. En breve te atendemos.`;
+            try {
+                await (0, whatsapp_service_1.sendWhatsAppTextMessage)(telefono, text);
+                console.log(`[whatsapp] Aviso inicio pedido enviado ok pedidoId=${result.pedido_id} to=${telefono}`);
+            }
+            catch (e) {
+                if (axios_1.default.isAxiosError(e)) {
+                    console.error(`[whatsapp] Error aviso inicio pedido status=${e.response?.status} message="${e.message}"`, e.response?.data ?? "");
+                }
+                else {
+                    console.error("[whatsapp] Error aviso inicio pedido:", e);
+                }
+            }
+        }
         return res.json({ ok: true });
     }
     catch (error) {
