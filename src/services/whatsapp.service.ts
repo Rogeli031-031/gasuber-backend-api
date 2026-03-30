@@ -7,7 +7,14 @@ import axios from "axios";
  */
 
 function normalizeToDigits(value: string): string {
-  return value.replace(/\D/g, "");
+  const digits = value.replace(/\D/g, "");
+  // WhatsApp suele enviar `from` en formato wa_id. En México es común recibir 521XXXXXXXXXX,
+  // mientras que la "allowed list" de Cloud API de prueba suele guardarse como +52XXXXXXXXXX.
+  // Normalizamos 521 -> 52 para evitar rechazo "Recipient phone number not in allowed list".
+  if (digits.startsWith("521") && digits.length === 13) {
+    return "52" + digits.slice(3);
+  }
+  return digits;
 }
 
 export function isWhatsAppEnabled(): boolean {
