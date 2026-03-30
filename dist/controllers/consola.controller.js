@@ -365,21 +365,22 @@ async function postPedidoAvanzarConsola(req, res) {
             nivel_carburacion: nivelCarb,
             nivel_almacen: nivelAlm,
         });
-        // Aviso por WhatsApp SOLO cuando inicia (recibido -> validando).
-        // No bloquea la operación del pedido si WhatsApp falla.
-        if (result.estado_nuevo === "validando") {
+        // Avisos por WhatsApp al cambiar estado (no bloqueantes).
+        if (result.estado_nuevo === "validando" || result.estado_nuevo === "convertido_servicio") {
             const telefono = result.telefono_origen;
-            const text = `Tu pedido Folio #${result.pedido_id} inició. En breve te atendemos.`;
+            const text = result.estado_nuevo === "validando"
+                ? `Tu pedido Folio #${result.pedido_id} inició. En breve te atendemos.`
+                : `Tu pedido Folio #${result.pedido_id} quedó terminado. Gracias por tu preferencia.`;
             try {
                 await (0, whatsapp_service_1.sendWhatsAppTextMessage)(telefono, text);
-                console.log(`[whatsapp] Aviso inicio pedido enviado ok pedidoId=${result.pedido_id} to=${telefono}`);
+                console.log(`[whatsapp] Aviso estado pedido enviado ok pedidoId=${result.pedido_id} estado=${result.estado_nuevo} to=${telefono}`);
             }
             catch (e) {
                 if (axios_1.default.isAxiosError(e)) {
-                    console.error(`[whatsapp] Error aviso inicio pedido status=${e.response?.status} message="${e.message}"`, e.response?.data ?? "");
+                    console.error(`[whatsapp] Error aviso estado pedido status=${e.response?.status} estado=${result.estado_nuevo} message="${e.message}"`, e.response?.data ?? "");
                 }
                 else {
-                    console.error("[whatsapp] Error aviso inicio pedido:", e);
+                    console.error("[whatsapp] Error aviso estado pedido:", e);
                 }
             }
         }
