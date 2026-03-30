@@ -5,6 +5,7 @@ import { db } from "./config/db";
 import { pedidosRouter } from "./routes/pedidos";
 import { gpsRoutes } from "./routes/gps.routes";
 import { consolaRoutes } from "./routes/consola.routes";
+import { whatsappRoutes } from "./routes/whatsapp.routes";
 
 const app = express();
 
@@ -51,5 +52,6 @@ app.get("/db-test", async (req, res) => {
 app.use("/pedidos", pedidosRouter);
 app.use("/api/gps", gpsRoutes);
 app.use("/api/consola", consolaRoutes);
+app.use("/api/whatsapp", whatsappRoutes);
 
 export default app;

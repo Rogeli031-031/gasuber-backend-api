@@ -10,6 +10,7 @@ const db_1 = require("./config/db");
 const pedidos_1 = require("./routes/pedidos");
 const gps_routes_1 = require("./routes/gps.routes");
 const consola_routes_1 = require("./routes/consola.routes");
+const whatsapp_routes_1 = require("./routes/whatsapp.routes");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -48,4 +49,5 @@ app.get("/db-test", async (req, res) => {
 app.use("/pedidos", pedidos_1.pedidosRouter);
 app.use("/api/gps", gps_routes_1.gpsRoutes);
 app.use("/api/consola", consola_routes_1.consolaRoutes);
+app.use("/api/whatsapp", whatsapp_routes_1.whatsappRoutes);
 exports.default = app;
