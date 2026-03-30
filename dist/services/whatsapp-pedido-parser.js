@@ -17,7 +17,7 @@ function parsePedidoTextoPlano(raw) {
     }
     // Prioridad: patrón completo "<numero> litros en <direccion>"
     // Soporta prefijos: "Necesito ...", "Necesito una pipa de ..."
-    const mLitrosEn = normalized.match(/(?:^|\\s)(\\d+(?:[\\.,]\\d+)?)\\s*litros\\s*en\\s*(.+)$/i);
+    const mLitrosEn = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*litros\s*en\s*(.+)$/i);
     if (mLitrosEn) {
         const litrosNum = Number(String(mLitrosEn[1]).replace(",", "."));
         const litros = Number.isFinite(litrosNum) ? Math.round(litrosNum) : null;
@@ -33,7 +33,7 @@ function parsePedidoTextoPlano(raw) {
         return { litros, direccion_texto: direccion || normalized };
     }
     // Compatibilidad: "<numero> litros <direccion>" (ej. "300 litros costera 123")
-    const mLitros = normalized.match(/(?:^|\\s)(\\d+(?:[\\.,]\\d+)?)\\s*litros\\s*(?:en\\s*)?(.+)$/i);
+    const mLitros = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*litros\s*(?:en\s*)?(.+)$/i);
     if (mLitros) {
         const litrosNum = Number(String(mLitros[1]).replace(",", "."));
         const litros = Number.isFinite(litrosNum) ? Math.round(litrosNum) : null;
@@ -48,7 +48,7 @@ function parsePedidoTextoPlano(raw) {
         return { litros, direccion_texto: direccion || normalized };
     }
     // Fallback: comportamiento anterior (si NO hay patrón completo).
-    const m = normalized.match(/(\\d+(?:\\.\\d+)?)/);
+    const m = normalized.match(/(\d+(?:\.\d+)?)/);
     if (!m || m.index === undefined) {
         return { litros: null, direccion_texto: normalized };
     }
