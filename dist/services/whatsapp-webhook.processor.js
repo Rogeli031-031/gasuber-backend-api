@@ -1,9 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processMetaWebhookPayload = processMetaWebhookPayload;
 const pedidos_service_1 = require("./pedidos.service");
 const whatsapp_pedido_parser_1 = require("./whatsapp-pedido-parser");
 const whatsapp_service_1 = require("./whatsapp.service");
+const axios_1 = __importDefault(require("axios"));
 /**
  * Estado por defecto al insertar: la BD usa `recibido` (no existe enum `pendiente`).
  */
@@ -77,17 +81,44 @@ async function processMetaWebhookPayload(body) {
                 console.log(`[whatsapp-webhook] Mensaje recibido wamid=${wamid} from=${from} body=${JSON.stringify(bodyText.slice(0, 200))}`);
                 const clienteNombre = contactNameForWaId(contacts, from) || "Cliente";
                 const { litros, direccion_texto } = (0, whatsapp_pedido_parser_1.parsePedidoTextoPlano)(bodyText);
+                console.log(`[whatsapp-webhook] Parser: litros=${litros ?? "null"} direccion="${direccion_texto}"`);
                 const direccionFinal = direccion_texto.trim() ||
                     `Pedido WhatsApp — ${litros != null ? `${litros} L` : "sin detalle"}`;
+                let pedidoId = null;
                 try {
                     const pedido = await (0, pedidos_service_1.insertPedido)(buildInsertFromWhatsApp(from, clienteNombre, direccionFinal, litros, unidadId));
+                    pedidoId = pedido.id;
                     console.log(`[whatsapp-webhook] Pedido creado id=${pedido.id} telefono=${from} tel_origen=${pedido.telefono_origen}`);
-                    const confirmText = `Pedido recibido. Folio #${pedido.id} en proceso.`;
-                    await (0, whatsapp_service_1.sendWhatsAppTextMessage)(from, confirmText);
-                    console.log(`[whatsapp-webhook] Confirmación enviada a ${from} para pedido ${pedido.id}`);
+                    console.log(`[whatsapp-webhook] Confirmación (plan): enviar a=${from} pedidoId=${pedido.id}`);
                 }
                 catch (e) {
-                    console.error("[whatsapp-webhook] Error creando pedido o enviando confirmación:", e);
+                    console.error("[whatsapp-webhook] Error creando pedido (NO se envía confirmación):", e);
+                    continue;
+                }
+                // Confirmación: si falla, NO impedimos creación y respondemos 200 al webhook.
+                if (!pedidoId)
+                    continue;
+                const confirmText = `Pedido recibido. Folio #${pedidoId} en proceso.`;
+                try {
+                    await (0, whatsapp_service_1.sendWhatsAppTextMessage)(from, confirmText);
+                    console.log(`[whatsapp-webhook] Confirmación enviada OK a=${from} pedidoId=${pedidoId}`);
+                }
+                catch (e) {
+                    if (axios_1.default.isAxiosError(e)) {
+                        const status = e.response?.status;
+                        const message = typeof e.message === "string" ? e.message : String(e.message);
+                        const data = e.response?.data;
+                        console.error(`[whatsapp-webhook] Error confirmación WhatsApp status=${status} message="${message}"`, data != null ? data : "");
+                        try {
+                            console.error(`[whatsapp-webhook] Detalle confirmación WhatsApp response.data (stringified): ${JSON.stringify(data, null, 2)}`);
+                        }
+                        catch {
+                            // ignore
+                        }
+                    }
+                    else {
+                        console.error("[whatsapp-webhook] Error confirmación WhatsApp (no axios):", e);
+                    }
                 }
             }
         }
