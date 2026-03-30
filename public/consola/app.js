@@ -1,6 +1,7 @@
 (function () {
   const STORAGE_KEY = "gasuber_consola_api_key";
-  const POLL_MS = 500;
+  /** Actualización de telemetría + lista de pedidos cada 200 ms */
+  const POLL_MS = 200;
 
   const selUnidad = document.getElementById("selUnidad");
   const inpApiKey = document.getElementById("inpApiKey");
@@ -24,6 +25,7 @@
   /** @type {{ telemetria: object | null, clave: string }} */
   let snapshot = { telemetria: null, clave: "" };
   let pollTimer = null;
+  let pedidosPollTimer = null;
   let saving = false;
   let pedidoSaving = false;
   let pedidoEstadoSaving = false;
@@ -328,8 +330,11 @@
 
   function iniciarPoll() {
     if (pollTimer) clearInterval(pollTimer);
+    if (pedidosPollTimer) clearInterval(pedidosPollTimer);
     pollTelemetria();
+    cargarPedidos();
     pollTimer = setInterval(pollTelemetria, POLL_MS);
+    pedidosPollTimer = setInterval(cargarPedidos, POLL_MS);
   }
 
   function renderEventCard(ev) {
@@ -444,6 +449,7 @@
   async function cargarPedidos() {
     try {
       if (!pedidoStack) return;
+      if (pedidoSaving || pedidoEstadoSaving) return;
       const unidadClave = selUnidad?.value;
       if (!unidadClave) return;
 
@@ -582,7 +588,7 @@
     const t = snapshot.telemetria;
     const clave = selUnidad.value;
     if (!clave || !t || snapshot.clave !== clave) {
-      setStatus("Espera la próxima lectura (0,5 s) o elige unidad.", "err");
+      setStatus("Espera la próxima lectura (0,2 s) o elige unidad.", "err");
       return;
     }
 
