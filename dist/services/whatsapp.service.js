@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.isWhatsAppEnabled = isWhatsAppEnabled;
 exports.assertWhatsAppConfig = assertWhatsAppConfig;
 exports.sendHelloWorldTemplate = sendHelloWorldTemplate;
+exports.sendWhatsAppTextMessage = sendWhatsAppTextMessage;
 const axios_1 = __importDefault(require("axios"));
 /**
  * Servicio aislado para WhatsApp Cloud API (Meta Graph).
@@ -58,6 +59,41 @@ async function sendHelloWorldTemplate(to) {
                 code: "en_US",
             },
         },
+    }, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+        timeout: 30000,
+    });
+    return response.data;
+}
+/**
+ * Envía un mensaje de texto (sesión) al número indicado.
+ */
+async function sendWhatsAppTextMessage(to, bodyText) {
+    assertWhatsAppConfig();
+    const token = process.env.WHATSAPP_TOKEN.trim();
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID.trim();
+    const version = (process.env.WHATSAPP_API_VERSION || "v22.0").trim();
+    const toDigits = normalizeToDigits(to);
+    if (!toDigits) {
+        const err = new Error("WHATSAPP_TO_INVALID");
+        err.code = "WHATSAPP_TO_INVALID";
+        throw err;
+    }
+    const text = bodyText.trim();
+    if (!text) {
+        const err = new Error("WHATSAPP_TEXT_EMPTY");
+        err.code = "WHATSAPP_TEXT_EMPTY";
+        throw err;
+    }
+    const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
+    const response = await axios_1.default.post(url, {
+        messaging_product: "whatsapp",
+        to: toDigits,
+        type: "text",
+        text: { body: text },
     }, {
         headers: {
             Authorization: `Bearer ${token}`,

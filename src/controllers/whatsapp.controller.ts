@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import axios from "axios";
 import { sendHelloWorldTemplate } from "../services/whatsapp.service";
+import { processMetaWebhookPayload } from "../services/whatsapp-webhook.processor";
 
 /**
  * POST /api/whatsapp/test
@@ -76,4 +77,50 @@ export async function postWhatsAppTest(req: Request, res: Response): Promise<voi
       error: message,
     });
   }
+}
+
+function firstQueryString(v: unknown): string | undefined {
+  if (typeof v === "string" && v.length > 0) return v;
+  if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+  return undefined;
+}
+
+/**
+ * GET /api/whatsapp/webhook — verificación Meta (suscripción).
+ */
+export function getWhatsAppWebhook(req: Request, res: Response): void {
+  const mode = firstQueryString(req.query["hub.mode"]);
+  const verifyToken = firstQueryString(req.query["hub.verify_token"]);
+  const challenge = firstQueryString(req.query["hub.challenge"]);
+
+  if (mode !== "subscribe") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN?.trim();
+  if (!expected || verifyToken !== expected) {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  if (challenge && challenge.length > 0) {
+    res.status(200).send(challenge);
+    return;
+  }
+
+  res.status(400).send("Bad Request");
+}
+
+/**
+ * POST /api/whatsapp/webhook — mensajes entrantes Meta Cloud API.
+ * Responde 200 de inmediato; el procesamiento es asíncrono.
+ */
+export function postWhatsAppWebhook(req: Request, res: Response): void {
+  res.status(200).send("OK");
+  setImmediate(() => {
+    processMetaWebhookPayload(req.body).catch((e) => {
+      console.error("[whatsapp-webhook] Error en proceso asíncrono:", e);
+    });
+  });
 }

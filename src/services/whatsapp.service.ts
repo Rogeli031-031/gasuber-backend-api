@@ -73,3 +73,52 @@ export async function sendHelloWorldTemplate(to: string): Promise<unknown> {
 
   return response.data;
 }
+
+/**
+ * Envía un mensaje de texto (sesión) al número indicado.
+ */
+export async function sendWhatsAppTextMessage(
+  to: string,
+  bodyText: string
+): Promise<unknown> {
+  assertWhatsAppConfig();
+
+  const token = process.env.WHATSAPP_TOKEN!.trim();
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID!.trim();
+  const version = (process.env.WHATSAPP_API_VERSION || "v22.0").trim();
+
+  const toDigits = normalizeToDigits(to);
+  if (!toDigits) {
+    const err = new Error("WHATSAPP_TO_INVALID");
+    (err as NodeJS.ErrnoException).code = "WHATSAPP_TO_INVALID";
+    throw err;
+  }
+
+  const text = bodyText.trim();
+  if (!text) {
+    const err = new Error("WHATSAPP_TEXT_EMPTY");
+    (err as NodeJS.ErrnoException).code = "WHATSAPP_TEXT_EMPTY";
+    throw err;
+  }
+
+  const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
+
+  const response = await axios.post(
+    url,
+    {
+      messaging_product: "whatsapp",
+      to: toDigits,
+      type: "text",
+      text: { body: text },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 30000,
+    }
+  );
+
+  return response.data;
+}

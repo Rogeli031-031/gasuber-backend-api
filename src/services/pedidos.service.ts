@@ -5,7 +5,7 @@ export type PedidoInsertInput = {
   telefono_origen: string;
   cliente_nombre: string;
   direccion_texto: string;
-  litros_solicitados: number;
+  litros_solicitados: number | null;
   prioridad: number;
   colonia: string;
   calle: string;
