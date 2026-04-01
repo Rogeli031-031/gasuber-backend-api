@@ -26,6 +26,34 @@ app.get("/", (req, res) => {
   );
 });
 
+app.get("/privacy", (req, res) => {
+  res
+    .status(200)
+    .type("html")
+    .send(`<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Política de privacidad – GasUber System</title>
+  </head>
+  <body style="font-family: system-ui; padding: 1.5rem; line-height: 1.5">
+    <h1>Política de privacidad – GasUber System</h1>
+    <ul>
+      <li>
+        Los datos recibidos por WhatsApp se usan únicamente para procesar pedidos,
+        seguimiento de rutas y atención al cliente.
+      </li>
+      <li>No se comparten con terceros fuera de la operación del servicio.</li>
+      <li>
+        La información puede almacenarse para fines de seguimiento y mejora del
+        servicio.
+      </li>
+    </ul>
+  </body>
+</html>`);
+});
+
 app.get("/db-test", async (req, res) => {
   try {
     const result = await db.query("SELECT NOW()");
