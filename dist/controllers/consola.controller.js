@@ -9,6 +9,8 @@ exports.getPdvConsola = getPdvConsola;
 exports.getPdvEstacionConsola = getPdvEstacionConsola;
 exports.getPdvAlmacenConsola = getPdvAlmacenConsola;
 exports.getPdvAutotanqueConsola = getPdvAutotanqueConsola;
+exports.getTarjetasConsola = getTarjetasConsola;
+exports.patchActivoTarjetaConsola = patchActivoTarjetaConsola;
 exports.getTripulacionPuestosConsola = getTripulacionPuestosConsola;
 exports.getTripulacionEmpleadosConsola = getTripulacionEmpleadosConsola;
 exports.getTripulacionAsignacionConsola = getTripulacionAsignacionConsola;
@@ -28,6 +30,7 @@ const pedidos_service_1 = require("../services/pedidos.service");
 const whatsapp_service_1 = require("../services/whatsapp.service");
 const plantasPdv_service_1 = require("../services/plantasPdv.service");
 const tripulacion_service_1 = require("../services/tripulacion.service");
+const tarjetas_service_1 = require("../services/tarjetas.service");
 function toFiniteNumber(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;
@@ -246,6 +249,95 @@ async function getPdvAutotanqueConsola(req, res) {
             });
         }
         return res.status(500).json({ ok: false, error: "Error listando autotanques" });
+    }
+}
+async function getTarjetasConsola(_req, res) {
+    try {
+        const tarjetas = await (0, tarjetas_service_1.listTarjetasRpi)();
+        return res.json({ ok: true, tarjetas });
+    }
+    catch (error) {
+        console.error("[consola] getTarjetas:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existe la tabla ID-TARJETA en PostgreSQL.",
+                hint: "node scripts/migrate.cjs --file=sql/020_id_tarjeta_rpi.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error listando tarjetas" });
+    }
+}
+async function patchActivoTarjetaConsola(req, res) {
+    try {
+        const tipoRaw = req.body?.tipo;
+        const activoRaw = req.body?.activo_id;
+        const tarjetaRaw = req.body?.tarjeta_id;
+        const tipos = ["estacion", "almacen", "autotanque"];
+        const tipo = typeof tipoRaw === "string" && tipos.includes(tipoRaw)
+            ? tipoRaw
+            : null;
+        if (!tipo) {
+            return res.status(400).json({
+                ok: false,
+                error: "tipo debe ser estacion, almacen o autotanque",
+            });
+        }
+        const activo_id = typeof activoRaw === "string"
+            ? activoRaw.trim()
+            : activoRaw != null
+                ? String(activoRaw).trim()
+                : "";
+        if (!activo_id || !/^\d+$/.test(activo_id)) {
+            return res.status(400).json({
+                ok: false,
+                error: "activo_id requerido (id numérico del registro en BD)",
+            });
+        }
+        let tarjeta_id = null;
+        if (tarjetaRaw === null || tarjetaRaw === undefined || tarjetaRaw === "") {
+            tarjeta_id = null;
+        }
+        else if (typeof tarjetaRaw === "number" && Number.isFinite(tarjetaRaw)) {
+            tarjeta_id = String(Math.round(tarjetaRaw));
+        }
+        else if (typeof tarjetaRaw === "string" && /^\d+$/.test(tarjetaRaw.trim())) {
+            tarjeta_id = tarjetaRaw.trim();
+        }
+        else {
+            return res.status(400).json({
+                ok: false,
+                error: "tarjeta_id inválido (use vacío o null para quitar la asignación)",
+            });
+        }
+        await (0, tarjetas_service_1.setTarjetaActivo)({ tipo, activoId: activo_id, tarjetaId: tarjeta_id });
+        return res.json({ ok: true });
+    }
+    catch (error) {
+        const e = error;
+        if (e.code === "23505") {
+            return res.status(409).json({
+                ok: false,
+                error: "Esa tarjeta ya está asignada a otro registro del mismo tipo (autotanque, estación o almacén).",
+            });
+        }
+        if (e.code === "NOT_FOUND") {
+            return res.status(404).json({ ok: false, error: "Activo no encontrado" });
+        }
+        if (e.code === "VALIDATION") {
+            return res.status(400).json({ ok: false, error: e.message || "Datos inválidos" });
+        }
+        console.error("[consola] patchActivoTarjeta:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "Faltan tablas de tarjetas o columnas tarjeta_id.",
+                hint: "node scripts/migrate.cjs --file=sql/020_id_tarjeta_rpi.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error guardando tarjeta" });
     }
 }
 async function getTripulacionPuestosConsola(_req, res) {

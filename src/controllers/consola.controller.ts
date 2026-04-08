@@ -26,6 +26,11 @@ import {
   getAsignacionPorAutotanque,
   guardarAsignacionTripulacion,
 } from "../services/tripulacion.service";
+import {
+  listTarjetasRpi,
+  setTarjetaActivo,
+  type TipoActivoTarjeta,
+} from "../services/tarjetas.service";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -254,6 +259,99 @@ export async function getPdvAutotanqueConsola(req: Request, res: Response) {
       });
     }
     return res.status(500).json({ ok: false, error: "Error listando autotanques" });
+  }
+}
+
+export async function getTarjetasConsola(_req: Request, res: Response) {
+  try {
+    const tarjetas = await listTarjetasRpi();
+    return res.json({ ok: true, tarjetas });
+  } catch (error) {
+    console.error("[consola] getTarjetas:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existe la tabla ID-TARJETA en PostgreSQL.",
+        hint: "node scripts/migrate.cjs --file=sql/020_id_tarjeta_rpi.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando tarjetas" });
+  }
+}
+
+export async function patchActivoTarjetaConsola(req: Request, res: Response) {
+  try {
+    const tipoRaw = req.body?.tipo;
+    const activoRaw = req.body?.activo_id;
+    const tarjetaRaw = req.body?.tarjeta_id;
+
+    const tipos: TipoActivoTarjeta[] = ["estacion", "almacen", "autotanque"];
+    const tipo =
+      typeof tipoRaw === "string" && tipos.includes(tipoRaw as TipoActivoTarjeta)
+        ? (tipoRaw as TipoActivoTarjeta)
+        : null;
+    if (!tipo) {
+      return res.status(400).json({
+        ok: false,
+        error: "tipo debe ser estacion, almacen o autotanque",
+      });
+    }
+
+    const activo_id =
+      typeof activoRaw === "string"
+        ? activoRaw.trim()
+        : activoRaw != null
+          ? String(activoRaw).trim()
+          : "";
+    if (!activo_id || !/^\d+$/.test(activo_id)) {
+      return res.status(400).json({
+        ok: false,
+        error: "activo_id requerido (id numérico del registro en BD)",
+      });
+    }
+
+    let tarjeta_id: string | null = null;
+    if (tarjetaRaw === null || tarjetaRaw === undefined || tarjetaRaw === "") {
+      tarjeta_id = null;
+    } else if (typeof tarjetaRaw === "number" && Number.isFinite(tarjetaRaw)) {
+      tarjeta_id = String(Math.round(tarjetaRaw));
+    } else if (typeof tarjetaRaw === "string" && /^\d+$/.test(tarjetaRaw.trim())) {
+      tarjeta_id = tarjetaRaw.trim();
+    } else {
+      return res.status(400).json({
+        ok: false,
+        error: "tarjeta_id inválido (use vacío o null para quitar la asignación)",
+      });
+    }
+
+    await setTarjetaActivo({ tipo, activoId: activo_id, tarjetaId: tarjeta_id });
+    return res.json({ ok: true });
+  } catch (error) {
+    const e = error as { code?: string; message?: string };
+    if (e.code === "23505") {
+      return res.status(409).json({
+        ok: false,
+        error:
+          "Esa tarjeta ya está asignada a otro registro del mismo tipo (autotanque, estación o almacén).",
+      });
+    }
+    if (e.code === "NOT_FOUND") {
+      return res.status(404).json({ ok: false, error: "Activo no encontrado" });
+    }
+    if (e.code === "VALIDATION") {
+      return res.status(400).json({ ok: false, error: e.message || "Datos inválidos" });
+    }
+    console.error("[consola] patchActivoTarjeta:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "Faltan tablas de tarjetas o columnas tarjeta_id.",
+        hint: "node scripts/migrate.cjs --file=sql/020_id_tarjeta_rpi.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error guardando tarjeta" });
   }
 }
 

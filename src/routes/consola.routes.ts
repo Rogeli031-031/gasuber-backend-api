@@ -7,6 +7,8 @@ import {
   getPdvEstacionConsola,
   getPdvAlmacenConsola,
   getPdvAutotanqueConsola,
+  getTarjetasConsola,
+  patchActivoTarjetaConsola,
   getTripulacionPuestosConsola,
   getTripulacionEmpleadosConsola,
   getTripulacionAsignacionConsola,
@@ -30,6 +32,8 @@ consolaRoutes.get("/pdv", getPdvConsola);
 consolaRoutes.get("/pdv-estacion", getPdvEstacionConsola);
 consolaRoutes.get("/pdv-almacen", getPdvAlmacenConsola);
 consolaRoutes.get("/pdv-autotanque", getPdvAutotanqueConsola);
+consolaRoutes.get("/tarjetas", getTarjetasConsola);
+consolaRoutes.patch("/activo-tarjeta", patchActivoTarjetaConsola);
 consolaRoutes.get("/tripulacion/puestos", getTripulacionPuestosConsola);
 consolaRoutes.get("/tripulacion/empleados", getTripulacionEmpleadosConsola);
 consolaRoutes.get("/tripulacion/asignacion", getTripulacionAsignacionConsola);

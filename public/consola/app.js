@@ -23,6 +23,20 @@
   const tripulacionFecha = document.getElementById("tripulacionFecha");
   const btnGuardarTripulacion = document.getElementById("btnGuardarTripulacion");
   let tripulacionSaving = false;
+  const sidebarTarjetaWrap = document.getElementById("sidebarTarjetaWrap");
+  const selTarjeta = document.getElementById("selTarjeta");
+  const btnGuardarTarjeta = document.getElementById("btnGuardarTarjeta");
+  let tarjetaSaving = false;
+  /** @type {string} valor guardado en BD para comparar con el desplegable */
+  let tarjetaSavedId = "";
+  /** @type {Array<{id: string, nombre?: string, tarjeta_id?: string | null, numero?: string}>} */
+  let lastEstacionesList = [];
+  /** @type {typeof lastEstacionesList} */
+  let lastAlmacenesList = [];
+  /** @type {typeof lastEstacionesList} */
+  let lastAutotanquesList = [];
+  /** @type {Array<{id: string, nombre: string}>} */
+  let tarjetasCatalog = [];
   const inpApiKey = document.getElementById("inpApiKey");
   const btnGuardarKey = document.getElementById("btnGuardarKey");
   const gCarb = document.getElementById("gCarb");
@@ -163,6 +177,23 @@
     hideTripulacionPanel();
   }
 
+  function hideTarjetaPanel() {
+    if (sidebarTarjetaWrap) {
+      sidebarTarjetaWrap.hidden = true;
+      sidebarTarjetaWrap.setAttribute("hidden", "");
+    }
+    if (selTarjeta) {
+      selTarjeta.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "— —";
+      selTarjeta.appendChild(o);
+      selTarjeta.disabled = true;
+    }
+    tarjetaSavedId = "";
+    if (btnGuardarTarjeta) btnGuardarTarjeta.disabled = true;
+  }
+
   function resetPdvSelect() {
     if (!selPdv) return;
     selPdv.innerHTML = "";
@@ -175,6 +206,7 @@
     hideEstacionBlock();
     hideAlmacenBlock();
     hideAutotanqueBlock();
+    hideTarjetaPanel();
   }
 
   function normalizarNombrePdv(s) {
@@ -283,6 +315,7 @@
       );
       selEstacion.innerHTML = "";
       const list = data.estaciones || [];
+      lastEstacionesList = list;
       if (!list.length) {
         const o = document.createElement("option");
         o.value = "";
@@ -320,6 +353,7 @@
       selEstacion.disabled = true;
       sessionStorage.removeItem(STORAGE_ESTACION_ID);
       if (e.status !== 401) console.warn("[consola] cargarEstaciones:", e);
+      lastEstacionesList = [];
     }
   }
 
@@ -349,6 +383,7 @@
       );
       selAlmacen.innerHTML = "";
       const list = data.almacenes || [];
+      lastAlmacenesList = list;
       if (!list.length) {
         const o = document.createElement("option");
         o.value = "";
@@ -386,6 +421,7 @@
       selAlmacen.disabled = true;
       sessionStorage.removeItem(STORAGE_ALMACEN_ID);
       if (e.status !== 401) console.warn("[consola] cargarAlmacenes:", e);
+      lastAlmacenesList = [];
     }
   }
 
@@ -415,6 +451,7 @@
       );
       selAutotanque.innerHTML = "";
       const list = data.autotanques || [];
+      lastAutotanquesList = list;
       if (!list.length) {
         const o = document.createElement("option");
         o.value = "";
@@ -452,6 +489,7 @@
       selAutotanque.disabled = true;
       sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
       if (e.status !== 401) console.warn("[consola] cargarAutotanques:", e);
+      lastAutotanquesList = [];
     }
   }
 
@@ -639,10 +677,173 @@
     }
   }
 
+  async function ensureTarjetasCatalog() {
+    if (tarjetasCatalog.length) return;
+    const data = await fetchJson("/api/consola/tarjetas", {
+      headers: apiHeaders(),
+    });
+    tarjetasCatalog = data.tarjetas || [];
+  }
+
+  function buildTarjetaSelectOptions() {
+    if (!selTarjeta) return;
+    selTarjeta.innerHTML = "";
+    const em = document.createElement("option");
+    em.value = "";
+    em.textContent = "— Sin asignar —";
+    selTarjeta.appendChild(em);
+    for (const t of tarjetasCatalog) {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.nombre;
+      selTarjeta.appendChild(opt);
+    }
+  }
+
+  function updateTarjetaGuardarBtn() {
+    if (!btnGuardarTarjeta || !selTarjeta) return;
+    const changed = String(selTarjeta.value || "") !== String(tarjetaSavedId || "");
+    btnGuardarTarjeta.disabled = tarjetaSaving || !changed;
+  }
+
+  async function refreshTarjetaPanel() {
+    if (!sidebarTarjetaWrap || !selTarjeta) return;
+
+    let tipo = null;
+    let activoId = "";
+    let currentTarjetaId = "";
+
+    if (
+      pdvSeleccionadoEsEstacion() &&
+      selEstacion &&
+      selEstacion.value &&
+      !selEstacion.disabled
+    ) {
+      tipo = "estacion";
+      activoId = selEstacion.value;
+      const row = lastEstacionesList.find((x) => String(x.id) === String(activoId));
+      currentTarjetaId = row && row.tarjeta_id != null ? String(row.tarjeta_id) : "";
+    } else if (
+      pdvSeleccionadoEsAlmacen() &&
+      selAlmacen &&
+      selAlmacen.value &&
+      !selAlmacen.disabled
+    ) {
+      tipo = "almacen";
+      activoId = selAlmacen.value;
+      const row = lastAlmacenesList.find((x) => String(x.id) === String(activoId));
+      currentTarjetaId = row && row.tarjeta_id != null ? String(row.tarjeta_id) : "";
+    } else if (
+      pdvSeleccionadoEsAutotanque() &&
+      selAutotanque &&
+      selAutotanque.value &&
+      !selAutotanque.disabled
+    ) {
+      tipo = "autotanque";
+      activoId = selAutotanque.value;
+      const row = lastAutotanquesList.find((x) => String(x.id) === String(activoId));
+      currentTarjetaId = row && row.tarjeta_id != null ? String(row.tarjeta_id) : "";
+    }
+
+    if (!tipo || !activoId) {
+      hideTarjetaPanel();
+      return;
+    }
+
+    try {
+      await ensureTarjetasCatalog();
+    } catch (e) {
+      hideTarjetaPanel();
+      if (e.status !== 401) console.warn("[consola] ensureTarjetasCatalog:", e);
+      return;
+    }
+
+    if (!tarjetasCatalog.length) {
+      hideTarjetaPanel();
+      return;
+    }
+
+    sidebarTarjetaWrap.removeAttribute("hidden");
+    sidebarTarjetaWrap.hidden = false;
+    buildTarjetaSelectOptions();
+    tarjetaSavedId = currentTarjetaId;
+    selTarjeta.value = currentTarjetaId;
+    selTarjeta.disabled = false;
+    updateTarjetaGuardarBtn();
+  }
+
+  async function guardarTarjeta() {
+    if (tarjetaSaving || !selTarjeta) return;
+    let tipo = null;
+    if (
+      pdvSeleccionadoEsEstacion() &&
+      selEstacion &&
+      selEstacion.value &&
+      !selEstacion.disabled
+    ) {
+      tipo = "estacion";
+    } else if (
+      pdvSeleccionadoEsAlmacen() &&
+      selAlmacen &&
+      selAlmacen.value &&
+      !selAlmacen.disabled
+    ) {
+      tipo = "almacen";
+    } else if (
+      pdvSeleccionadoEsAutotanque() &&
+      selAutotanque &&
+      selAutotanque.value &&
+      !selAutotanque.disabled
+    ) {
+      tipo = "autotanque";
+    }
+    if (!tipo) return;
+
+    const activo_id =
+      tipo === "estacion"
+        ? selEstacion.value
+        : tipo === "almacen"
+          ? selAlmacen.value
+          : selAutotanque.value;
+
+    tarjetaSaving = true;
+    updateTarjetaGuardarBtn();
+    setStatus("Guardando tarjeta…", "");
+    const plantaId = selPlanta && selPlanta.value;
+    try {
+      await fetchJson("/api/consola/activo-tarjeta", {
+        method: "PATCH",
+        headers: apiHeaders(),
+        body: JSON.stringify({
+          tipo,
+          activo_id,
+          tarjeta_id: selTarjeta.value || "",
+        }),
+      });
+      setStatus("Tarjeta guardada.", "ok");
+      tarjetaSavedId = String(selTarjeta.value || "");
+      if (plantaId) {
+        if (tipo === "estacion") await cargarEstaciones(plantaId, true);
+        else if (tipo === "almacen") await cargarAlmacenes(plantaId, true);
+        else await cargarAutotanques(plantaId, true);
+        if (tipo === "autotanque") await refreshTripulacionPanel();
+      }
+      await refreshTarjetaPanel();
+    } catch (e) {
+      let msg = e.message || String(e);
+      if (e.data && e.data.error) msg = e.data.error;
+      setStatus(msg, "err");
+    } finally {
+      tarjetaSaving = false;
+      updateTarjetaGuardarBtn();
+    }
+  }
+
   async function syncPdvDetalleUI(restore) {
     await syncEstacionUI(pdvSeleccionadoEsEstacion() ? restore : false);
     await syncAlmacenUI(pdvSeleccionadoEsAlmacen() ? restore : false);
     await syncAutotanqueUI(pdvSeleccionadoEsAutotanque() ? restore : false);
+    await refreshTarjetaPanel();
   }
 
   async function cargarPdv(plantaId, restorePdv) {
@@ -668,6 +869,7 @@
         hideEstacionBlock();
         hideAlmacenBlock();
         hideAutotanqueBlock();
+        hideTarjetaPanel();
         return;
       }
       const empty = document.createElement("option");
@@ -704,6 +906,7 @@
       hideEstacionBlock();
       hideAlmacenBlock();
       hideAutotanqueBlock();
+      hideTarjetaPanel();
       if (e.status !== 401) console.warn("[consola] cargarPdv:", e);
     }
   }
@@ -1384,6 +1587,7 @@
       } else {
         sessionStorage.removeItem(STORAGE_ESTACION_ID);
       }
+      void refreshTarjetaPanel();
     });
   }
 
@@ -1394,6 +1598,7 @@
       } else {
         sessionStorage.removeItem(STORAGE_ALMACEN_ID);
       }
+      void refreshTarjetaPanel();
     });
   }
 
@@ -1405,7 +1610,15 @@
         sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
       }
       void refreshTripulacionPanel();
+      void refreshTarjetaPanel();
     });
+  }
+
+  if (selTarjeta) {
+    selTarjeta.addEventListener("change", updateTarjetaGuardarBtn);
+  }
+  if (btnGuardarTarjeta) {
+    btnGuardarTarjeta.addEventListener("click", () => void guardarTarjeta());
   }
 
   if (selTripulacionChofer) {

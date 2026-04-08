@@ -52,6 +52,20 @@
               <option value="">— Elija PDV Autotanque —</option>
             </select>
           </div>
+          <div class="sidebar-block sidebar-tarjeta" id="sidebarTarjetaWrap" hidden>
+            <span class="sidebar-label">ID tarjeta (Raspberry)</span>
+            <p class="tripulacion-hint">
+              Asigna RPI-001…040 al activo seleccionado (estación, almacén o autotanque). Vacío = sin
+              asignar.
+            </p>
+            <label class="sidebar-sublabel" for="selTarjeta">Tarjeta</label>
+            <select id="selTarjeta" aria-label="Tarjeta Raspberry RPI" disabled>
+              <option value="">— —</option>
+            </select>
+            <button type="button" id="btnGuardarTarjeta" class="btn secondary tripulacion-btn" disabled>
+              Guardar tarjeta
+            </button>
+          </div>
           <div class="sidebar-block sidebar-tripulacion" id="sidebarTripulacionWrap" hidden>
             <span class="sidebar-label">Tripulación</span>
             <p class="tripulacion-hint">
@@ -239,6 +253,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=tripulacion-ui-1"></script>
+    <script src="./app.js?v=tarjeta-consola-1"></script>
   </body>
 </html>
