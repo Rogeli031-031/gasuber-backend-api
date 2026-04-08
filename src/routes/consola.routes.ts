@@ -13,7 +13,7 @@ import {
   getTripulacionEmpleadosConsola,
   getTripulacionAsignacionConsola,
   postTripulacionAsignacionConsola,
-  getTelemetriaConsola,
+  getTelemetriaAutotanqueConsola,
   getEventosConsola,
   getPedidosConsola,
   postPedidoAvanzarConsola,
@@ -38,7 +38,10 @@ consolaRoutes.get("/tripulacion/puestos", getTripulacionPuestosConsola);
 consolaRoutes.get("/tripulacion/empleados", getTripulacionEmpleadosConsola);
 consolaRoutes.get("/tripulacion/asignacion", getTripulacionAsignacionConsola);
 consolaRoutes.post("/tripulacion/asignacion", postTripulacionAsignacionConsola);
-consolaRoutes.get("/telemetria/:clave", getTelemetriaConsola);
+consolaRoutes.get(
+  "/telemetria-autotanque/:autotanqueId",
+  getTelemetriaAutotanqueConsola
+);
 consolaRoutes.get("/eventos", getEventosConsola);
 consolaRoutes.get("/pedidos", getPedidosConsola);
 consolaRoutes.post("/pedidos", postPedidoConsola);

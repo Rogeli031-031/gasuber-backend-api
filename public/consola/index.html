@@ -107,10 +107,12 @@
           </div>
         </div>
         <div class="config-row">
-          <label>
-            Unidad
-            <select id="selUnidad"></select>
-          </label>
+          <div class="autotanque-activo-wrap">
+            <span class="sidebar-label">Autotanque activo</span>
+            <p id="autotanqueActivoText" class="autotanque-activo-text">
+              — Elija Planta → PDV Autotanque → número en la barra lateral —
+            </p>
+          </div>
           <label class="grow">
             API key (<code>x-api-key</code>)
             <input
@@ -253,6 +255,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=tarjeta-consola-2"></script>
+    <script src="./app.js?v=autotanque-consola-1"></script>
   </body>
 </html>

@@ -8,7 +8,7 @@
   /** Actualización de telemetría + lista de pedidos cada 200 ms */
   const POLL_MS = 200;
 
-  const selUnidad = document.getElementById("selUnidad");
+  const autotanqueActivoText = document.getElementById("autotanqueActivoText");
   const selPlanta = document.getElementById("selPlanta");
   const selPdv = document.getElementById("selPdv");
   const selEstacion = document.getElementById("selEstacion");
@@ -175,6 +175,7 @@
     }
     sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
     hideTripulacionPanel();
+    updateAutotanqueActivoLabel();
   }
 
   function hideTarjetaPanel() {
@@ -256,6 +257,38 @@
     const meta = (opt.getAttribute("data-pdv-nombre") || "").trim();
     const label = (opt.textContent || "").replace(/\s+/g, " ").trim();
     return normalizarNombrePdv(meta || label) === "AUTOTANQUE";
+  }
+
+  /** Id de ID-PDV-AUTOTANQUE para telemetría, pedidos e inicio de ruta (solo si PDV = Autotanque). */
+  function autotanqueIdConsola() {
+    if (
+      !pdvSeleccionadoEsAutotanque() ||
+      !selAutotanque ||
+      !selAutotanque.value ||
+      selAutotanque.disabled
+    ) {
+      return "";
+    }
+    return String(selAutotanque.value);
+  }
+
+  function updateAutotanqueActivoLabel() {
+    if (!autotanqueActivoText) return;
+    const id = autotanqueIdConsola();
+    if (!id) {
+      autotanqueActivoText.textContent =
+        "— Elija Planta → PDV Autotanque → número (telemetría y pedidos por ID-PDV-AUTOTANQUE) —";
+      return;
+    }
+    const row = lastAutotanquesList.find((x) => String(x.id) === String(id));
+    if (row) {
+      const t = row.tarjeta_nombre
+        ? ` · ${row.tarjeta_nombre}`
+        : " · sin tarjeta RPI (no habrá telemetría)";
+      autotanqueActivoText.textContent = `${row.numero} — ${row.placas}${t}`;
+    } else {
+      autotanqueActivoText.textContent = `Autotanque id ${id}`;
+    }
   }
 
   function plantaPdvContextLine() {
@@ -508,6 +541,7 @@
     sidebarAutotanqueWrap.hidden = false;
     await cargarAutotanques(plantaId, restoreAutotanque);
     await refreshTripulacionPanel();
+    updateAutotanqueActivoLabel();
   }
 
   function updateTripulacionGuardarBtn() {
@@ -845,6 +879,7 @@
     await syncAlmacenUI(pdvSeleccionadoEsAlmacen() ? restore : false);
     await syncAutotanqueUI(pdvSeleccionadoEsAutotanque() ? restore : false);
     await refreshTarjetaPanel();
+    if (btnInicioRuta) btnInicioRuta.disabled = !autotanqueIdConsola();
   }
 
   async function cargarPdv(plantaId, restorePdv) {
@@ -1112,7 +1147,7 @@
         <dt>Litros</dt><dd>${escapeHtml(String(pedido.litros_solicitados ?? "—"))}</dd>
         <dt>Estado</dt><dd>${escapeHtml(estadoLabel(pedido.estado))}</dd>
         <dt>Fecha</dt><dd>${escapeHtml(formatFecha(pedido.created_at))}</dd>
-        <dt>Unidad</dt><dd>${escapeHtml(selUnidad?.value || pedido.unidad_clave || "—")}</dd>
+        <dt>Autotanque</dt><dd>${escapeHtml(autotanqueActivoText?.textContent?.trim() || pedido.autotanque_id || "—")}</dd>
         <dt>Coord. cliente</dt><dd>${
           coords
             ? `${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`
@@ -1130,13 +1165,23 @@
       raspberryHint.hidden = true;
       raspberryHint.textContent = "";
     }
+    if (r && r.sin_tarjeta_asignada) {
+      raspberryIndicator.classList.add("bad");
+      raspberryText.textContent = "Raspberry: sin tarjeta en autotanque";
+      if (raspberryHint) {
+        raspberryHint.hidden = false;
+        raspberryHint.textContent =
+          "Asigne una tarjeta RPI-001…040 a este autotanque en la barra lateral (ID tarjeta). Sin tarjeta no se aceptan envíos GPS.";
+      }
+      return;
+    }
     if (!r || r.sin_fila_gps) {
       raspberryIndicator.classList.add("bad");
       raspberryText.textContent = "Raspberry: sin datos en servidor";
       if (raspberryHint) {
         raspberryHint.hidden = false;
         raspberryHint.textContent =
-          "La Pi debe enviar POST /api/gps con header x-api-key (API_KEY_RASPBERRY) y unidad_id igual a la clave de la unidad. Prueba GET /api/gps/health para verificar la URL del backend.";
+          "La Pi debe enviar POST /api/gps con header x-api-key (API_KEY_RASPBERRY) y autotanque_id igual al id del autotanque (misma consola). Prueba GET /api/gps/health para verificar la URL del backend.";
       }
       return;
     }
@@ -1158,7 +1203,7 @@
     if (raspberryHint) {
       raspberryHint.hidden = false;
       raspberryHint.textContent =
-        "El último envío a la base de datos es anterior al umbral. Comprueba que la Raspberry esté encendida, con red, que el script use la misma URL y clave que el servidor, y que unidad_id coincida con la unidad seleccionada.";
+        "El último envío a la base de datos es anterior al umbral. Comprueba red, API_KEY_RASPBERRY y que autotanque_id en la Pi coincida con el autotanque seleccionado.";
     }
   }
 
@@ -1176,36 +1221,54 @@
 
   async function cargarUnidades() {
     try {
-      const data = await fetchJson("/api/consola/unidades", {
-        headers: apiHeaders(),
-      });
-      selUnidad.innerHTML = "";
-      for (const u of data.unidades || []) {
-        const opt = document.createElement("option");
-        opt.value = u.clave;
-        opt.textContent = `${u.clave} — ${u.placa} (${u.estado})`;
-        selUnidad.appendChild(opt);
-      }
-      if (data.unidades?.length) {
-        btnInicioRuta.disabled = false;
+      await cargarPlantas();
+      if (inpApiKey.value.trim()) {
+        btnInicioRuta.disabled = !autotanqueIdConsola();
         iniciarPoll();
       }
-      await cargarPlantas();
     } catch (e) {
       setStatus(e.message || String(e), "err");
     }
   }
 
   async function pollTelemetria() {
-    const clave = selUnidad.value;
-    if (!clave) return;
+    const atq = autotanqueIdConsola();
+    if (!atq) {
+      snapshot = { telemetria: null, clave: "" };
+      if (gCarb) gCarb.textContent = "—";
+      if (gAlm) gAlm.textContent = "—";
+      if (gVel) gVel.textContent = "—";
+      if (metaLine) {
+        metaLine.textContent =
+          "Seleccione Planta → PDV Autotanque → número. La telemetría viene de la Raspberry asignada por tarjeta a ese registro.";
+      }
+      setRaspberryIndicator(null);
+      if (mapHint) mapHint.textContent = "Seleccione un autotanque en la barra lateral.";
+      return;
+    }
     try {
       const data = await fetchJson(
-        "/api/consola/telemetria/" + encodeURIComponent(clave),
+        "/api/consola/telemetria-autotanque/" + encodeURIComponent(atq),
         { headers: apiHeaders() }
       );
+
+      if (data.sin_tarjeta_asignada) {
+        snapshot = { telemetria: null, clave: atq };
+        if (gCarb) gCarb.textContent = "—";
+        if (gAlm) gAlm.textContent = "—";
+        if (gVel) gVel.textContent = "—";
+        if (metaLine) {
+          metaLine.textContent =
+            "Sin tarjeta RPI en este autotanque: asigne RPI-001… en «ID tarjeta» o no habrá datos." +
+            plantaPdvContextLine();
+        }
+        setRaspberryIndicator(data.raspberry);
+        if (mapHint) mapHint.textContent = "Sin telemetría hasta asignar tarjeta Raspberry.";
+        return;
+      }
+
       const t = data.telemetria;
-      snapshot = { telemetria: t, clave };
+      snapshot = { telemetria: t, clave: atq };
 
       setRaspberryIndicator(data.raspberry);
 
@@ -1219,7 +1282,7 @@
         Number(t.lat) === 0 && Number(t.lon) === 0
           ? " (sin fix — coordenadas en 0)"
           : "";
-      metaLine.textContent = `GPS: ${lat}°, ${lon}°${fixTxt} · nivel (compat): ${fmtPct(t.nivel)}% · placa: ${t.placa}${t.fecha ? " · último dato GPS: " + t.fecha : ""}${plantaPdvContextLine()}`;
+      metaLine.textContent = `GPS: ${lat}°, ${lon}°${fixTxt} · nivel (compat): ${fmtPct(t.nivel)}% · placas: ${t.placa}${t.fecha ? " · último dato GPS: " + t.fecha : ""}${plantaPdvContextLine()}`;
       updateMapUnidad(t);
     } catch (e) {
       if (e.status === 401) {
@@ -1247,7 +1310,7 @@
       <h3>Inicio de ruta</h3>
       <div class="ts">Registrado: ${escapeHtml(ev.created_at)} · ID #${escapeHtml(String(ev.id))}</div>
       <dl>
-        <dt>Unidad</dt><dd>${escapeHtml(ev.unidad_clave)}</dd>
+        <dt>Autotanque</dt><dd>${escapeHtml(ev.unidad_clave || "—")}</dd>
         <dt>Lat / Lon</dt><dd>${escapeHtml(String(ev.lat))}, ${escapeHtml(String(ev.lon))}</dd>
         <dt>Nivel (compat)</dt><dd>${escapeHtml(String(ev.nivel))} %</dd>
         <dt>Carburación</dt><dd>${ev.nivel_carburacion != null ? escapeHtml(String(ev.nivel_carburacion)) + " %" : "—"}</dd>
@@ -1353,11 +1416,11 @@
     try {
       if (!pedidoStack) return;
       if (pedidoSaving || pedidoEstadoSaving) return;
-      const unidadClave = selUnidad?.value;
-      if (!unidadClave) return;
+      const atq = autotanqueIdConsola();
+      if (!atq) return;
 
       const data = await fetchJson(
-        "/api/consola/pedidos?unidad_clave=" + encodeURIComponent(unidadClave),
+        "/api/consola/pedidos?autotanque_id=" + encodeURIComponent(atq),
         {
         headers: apiHeaders(),
         }
@@ -1398,7 +1461,7 @@
     if (!inpClienteNombre || !inpTelefonoOrigen || !inpCp || !inpLitrosSolicitados) return;
 
     const body = {
-      unidad_clave: selUnidad?.value,
+      autotanque_id: autotanqueIdConsola(),
       cliente_nombre: inpClienteNombre.value,
       telefono_origen: inpTelefonoOrigen.value,
       colonia: inpColonia.value,
@@ -1411,8 +1474,13 @@
       litros_solicitados: inpLitrosSolicitados.value,
     };
 
+    if (!body.autotanque_id) {
+      setStatus("Seleccione Planta → PDV Autotanque → número antes de crear el pedido.", "err");
+      return;
+    }
+
     const required = [
-      body.unidad_clave,
+      body.autotanque_id,
       body.cliente_nombre,
       body.telefono_origen,
       body.colonia,
@@ -1462,12 +1530,12 @@
   }
 
   async function cargarEventos() {
-    const clave = selUnidad.value;
-    if (!clave) return;
+    const atq = autotanqueIdConsola();
+    if (!atq) return;
     try {
       const data = await fetchJson(
-        "/api/consola/eventos?unidad_clave=" +
-          encodeURIComponent(clave) +
+        "/api/consola/eventos?autotanque_id=" +
+          encodeURIComponent(atq) +
           "&limit=80",
         { headers: apiHeaders() }
       );
@@ -1475,7 +1543,7 @@
       const list = data.eventos || [];
       if (!list.length) {
         eventStack.innerHTML =
-          '<p class="empty-stack">Aún no hay inicios de ruta guardados para esta unidad.</p>';
+          '<p class="empty-stack">Aún no hay inicios de ruta guardados para este autotanque.</p>';
         return;
       }
       for (const ev of list) {
@@ -1489,9 +1557,12 @@
   async function guardarInicioRuta() {
     if (saving) return;
     const t = snapshot.telemetria;
-    const clave = selUnidad.value;
-    if (!clave || !t || snapshot.clave !== clave) {
-      setStatus("Espera la próxima lectura (0,2 s) o elige unidad.", "err");
+    const atq = autotanqueIdConsola();
+    if (!atq || !t || String(snapshot.clave) !== String(atq)) {
+      setStatus(
+        "Espera telemetría (0,2 s) con PDV Autotanque y número elegidos, y tarjeta RPI asignada.",
+        "err"
+      );
       return;
     }
 
@@ -1500,7 +1571,7 @@
     setStatus("Guardando…", "");
 
     const body = {
-      unidad_id: clave,
+      autotanque_id: atq,
       lat: Number(t.lat),
       lon: Number(t.lon),
       nivel: Number(t.nivel),
@@ -1544,13 +1615,6 @@
     cargarEventos();
     if (btnPedido) btnPedido.disabled = false;
     cargarPedidos();
-  });
-
-  selUnidad.addEventListener("change", () => {
-    iniciarPoll();
-    cargarEventos();
-    cargarPedidos();
-    setStatus("", "");
   });
 
   if (selPlanta) {
@@ -1610,8 +1674,14 @@
       } else {
         sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
       }
+      updateAutotanqueActivoLabel();
       void refreshTripulacionPanel();
       void refreshTarjetaPanel();
+      void pollTelemetria();
+      void cargarEventos();
+      void cargarPedidos();
+      btnInicioRuta.disabled = !autotanqueIdConsola();
+      setStatus("", "");
     });
   }
 
@@ -1710,9 +1780,9 @@
       if (!action || !pedidoId) return;
       if (pedidoEstadoSaving) return;
 
-      const unidadClave = selUnidad?.value;
-      if (!unidadClave) {
-        setStatus("Selecciona una unidad para operar el pedido.", "err");
+      const atqPed = autotanqueIdConsola();
+      if (!atqPed) {
+        setStatus("Selecciona Planta → PDV Autotanque → número para operar pedidos.", "err");
         return;
       }
 
@@ -1733,7 +1803,7 @@
             method: "POST",
             headers: apiHeaders(),
             body: JSON.stringify({
-              unidad_clave: unidadClave,
+              autotanque_id: atqPed,
               nivel_carburacion,
               nivel_almacen,
             }),
@@ -1762,7 +1832,7 @@
             method: "POST",
             headers: apiHeaders(),
             body: JSON.stringify({
-              unidad_clave: unidadClave,
+              autotanque_id: atqPed,
               razon_cancelacion: razonTrim,
               nivel_carburacion,
               nivel_almacen,

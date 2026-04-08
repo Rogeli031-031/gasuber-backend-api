@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.postGps = postGps;
-const gps_service_1 = require("../services/gps.service");
+const gpsAutotanque_service_1 = require("../services/gpsAutotanque.service");
 function toFiniteNumber(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;
@@ -22,19 +22,23 @@ function firstDefined(...vals) {
     }
     return undefined;
 }
+/**
+ * POST /api/gps — telemetría desde Raspberry.
+ * Requiere `autotanque_id` (id de gasuber."ID-PDV-AUTOTANQUE") y tarjeta RPI asignada a ese autotanque.
+ */
 async function postGps(req, res) {
     try {
         const body = req.body ?? {};
-        const { unidad_id: unidadRaw, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh, vel, speed, velocidad, kmh, speed_kmh, } = body;
-        const unidad_id = typeof unidadRaw === "string"
-            ? unidadRaw.trim()
-            : typeof unidadRaw === "number" && Number.isFinite(unidadRaw)
-                ? String(unidadRaw)
+        const { autotanque_id: atqRaw, lat, lon, nivel, nivel_carburacion, nivel_almacen, velocidad_kmh, vel, speed, velocidad, kmh, speed_kmh, } = body;
+        const autotanque_id = typeof atqRaw === "string"
+            ? atqRaw.trim()
+            : typeof atqRaw === "number" && Number.isFinite(atqRaw)
+                ? String(Math.round(atqRaw))
                 : "";
-        if (!unidad_id) {
+        if (!autotanque_id || !/^\d+$/.test(autotanque_id)) {
             return res.status(400).json({
                 ok: false,
-                error: "unidad_id es requerido (string, igual que unidades.clave en la BD)",
+                error: "autotanque_id es requerido (id numérico de ID-PDV-AUTOTANQUE, misma fila que en la consola).",
             });
         }
         const latNum = toFiniteNumber(lat);
@@ -96,27 +100,36 @@ async function postGps(req, res) {
                 error: "nivel_almacen debe ser número entre 0 y 100",
             });
         }
-        const exists = await (0, gps_service_1.unidadExists)(unidad_id);
-        if (!exists) {
-            return res.status(400).json({
-                ok: false,
-                error: "unidad_id no existe en la tabla unidades",
-                hint: "Debe coincidir exactamente con la clave de la unidad (sin espacios extra). Revisa en la consola el valor del desplegable.",
-            });
-        }
         const nivelFinal = hasNivel
             ? nivelNum
-            : // Compatibilidad: cuando mandan dos niveles, `nivel` se toma del almacén.
-                nivelAlmacenNum;
-        await (0, gps_service_1.insertGpsPoint)({
-            unidad_id,
-            lat: latNum,
-            lon: lonNum,
-            nivel: nivelFinal,
-            nivel_carburacion: nivelCarbNum,
-            nivel_almacen: nivelAlmacenNum,
-            velocidad_kmh: velocidadFinal,
-        });
+            : nivelAlmacenNum;
+        try {
+            await (0, gpsAutotanque_service_1.insertGpsAutotanque)({
+                autotanque_id,
+                lat: latNum,
+                lon: lonNum,
+                nivel: nivelFinal,
+                nivel_carburacion: nivelCarbNum,
+                nivel_almacen: nivelAlmacenNum,
+                velocidad_kmh: velocidadFinal,
+            });
+        }
+        catch (e) {
+            const err = e;
+            if (err.code === "SIN_TARJETA") {
+                return res.status(403).json({
+                    ok: false,
+                    error: err.message || "Autotanque sin tarjeta RPI asignada",
+                });
+            }
+            if (err.code === "VALIDATION") {
+                return res.status(400).json({
+                    ok: false,
+                    error: err.message || "Datos inválidos",
+                });
+            }
+            throw e;
+        }
         return res.json({ ok: true });
     }
     catch (error) {

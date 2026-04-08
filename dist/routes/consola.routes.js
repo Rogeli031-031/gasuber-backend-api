@@ -18,7 +18,7 @@ exports.consolaRoutes.get("/tripulacion/puestos", consola_controller_1.getTripul
 exports.consolaRoutes.get("/tripulacion/empleados", consola_controller_1.getTripulacionEmpleadosConsola);
 exports.consolaRoutes.get("/tripulacion/asignacion", consola_controller_1.getTripulacionAsignacionConsola);
 exports.consolaRoutes.post("/tripulacion/asignacion", consola_controller_1.postTripulacionAsignacionConsola);
-exports.consolaRoutes.get("/telemetria/:clave", consola_controller_1.getTelemetriaConsola);
+exports.consolaRoutes.get("/telemetria-autotanque/:autotanqueId", consola_controller_1.getTelemetriaAutotanqueConsola);
 exports.consolaRoutes.get("/eventos", consola_controller_1.getEventosConsola);
 exports.consolaRoutes.get("/pedidos", consola_controller_1.getPedidosConsola);
 exports.consolaRoutes.post("/pedidos", consola_controller_1.postPedidoConsola);

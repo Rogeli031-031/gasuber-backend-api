@@ -1,16 +1,16 @@
 import type { Request, Response } from "express";
 import axios from "axios";
-import { getUnidadByClave, listUnidadesParaConsola } from "../services/unidades.service";
-import { getTelemetriaPorClave } from "../services/telemetria.service";
+import { listUnidadesParaConsola } from "../services/unidades.service";
+import { getTelemetriaPorAutotanqueId } from "../services/telemetria.service";
 import {
-  insertEventoInicioRuta,
-  listEventosPorClave,
+  insertEventoInicioRutaAutotanque,
+  listEventosPorAutotanque,
 } from "../services/eventosInicioRuta.service";
 import {
-  insertPedido,
-  listPedidosParaConsolaUnidad,
-  avanzarPedidoEstado,
-  cancelarPedido,
+  insertPedidoAutotanque,
+  listPedidosParaConsolaAutotanque,
+  avanzarPedidoEstadoAutotanque,
+  cancelarPedidoAutotanque,
 } from "../services/pedidos.service";
 import { sendWhatsAppTextMessage } from "../services/whatsapp.service";
 import {
@@ -517,36 +517,53 @@ export async function postTripulacionAsignacionConsola(req: Request, res: Respon
   }
 }
 
-export async function getTelemetriaConsola(req: Request, res: Response) {
+export async function getTelemetriaAutotanqueConsola(req: Request, res: Response) {
   try {
-    const clave = req.params.clave;
-    if (!clave || typeof clave !== "string") {
-      return res.status(400).json({ ok: false, error: "clave inválida" });
+    const idRaw = req.params.autotanqueId;
+    const id =
+      typeof idRaw === "string"
+        ? idRaw.trim()
+        : idRaw != null
+          ? String(idRaw).trim()
+          : "";
+    if (!id || !/^\d+$/.test(id)) {
+      return res.status(400).json({
+        ok: false,
+        error: "autotanque_id inválido en la ruta",
+      });
     }
 
-    const data = await getTelemetriaPorClave(clave);
+    const data = await getTelemetriaPorAutotanqueId(id);
     if (!data) {
-      return res.status(404).json({ ok: false, error: "unidad no encontrada" });
+      return res.status(404).json({ ok: false, error: "autotanque no encontrado" });
     }
 
     return res.json({
       ok: true,
+      sin_tarjeta_asignada: data.sin_tarjeta_asignada,
+      autotanque: data.autotanque,
       telemetria: data.telemetria,
       raspberry: data.raspberry,
     });
   } catch (error) {
-    console.error("[consola] getTelemetria:", error);
+    console.error("[consola] getTelemetriaAutotanque:", error);
     return res.status(500).json({ ok: false, error: "Error leyendo telemetría" });
   }
 }
 
 export async function getEventosConsola(req: Request, res: Response) {
   try {
-    const clave = req.query.unidad_clave;
-    if (!clave || typeof clave !== "string") {
+    const atqRaw = req.query.autotanque_id;
+    const autotanqueId =
+      typeof atqRaw === "string"
+        ? atqRaw.trim()
+        : atqRaw != null
+          ? String(atqRaw).trim()
+          : "";
+    if (!autotanqueId || !/^\d+$/.test(autotanqueId)) {
       return res.status(400).json({
         ok: false,
-        error: "query unidad_clave requerido",
+        error: "query autotanque_id requerido (id de ID-PDV-AUTOTANQUE)",
       });
     }
 
@@ -554,8 +571,8 @@ export async function getEventosConsola(req: Request, res: Response) {
     const limit =
       typeof limitRaw === "string" ? Number(limitRaw) : Number(limitRaw ?? 50);
 
-    const eventos = await listEventosPorClave(
-      clave,
+    const eventos = await listEventosPorAutotanque(
+      autotanqueId,
       Number.isFinite(limit) ? limit : 50
     );
     return res.json({ ok: true, eventos });
@@ -568,7 +585,7 @@ export async function getEventosConsola(req: Request, res: Response) {
 export async function postInicioRuta(req: Request, res: Response) {
   try {
     const {
-      unidad_id,
+      autotanque_id: atqBody,
       lat,
       lon,
       nivel,
@@ -579,18 +596,16 @@ export async function postInicioRuta(req: Request, res: Response) {
       gps_fix,
     } = req.body ?? {};
 
-    if (!unidad_id || typeof unidad_id !== "string") {
+    const autotanque_id =
+      typeof atqBody === "string"
+        ? atqBody.trim()
+        : atqBody != null
+          ? String(atqBody).trim()
+          : "";
+    if (!autotanque_id || !/^\d+$/.test(autotanque_id)) {
       return res.status(400).json({
         ok: false,
-        error: "unidad_id (clave) es requerido",
-      });
-    }
-
-    const unidad = await getUnidadByClave(unidad_id);
-    if (!unidad) {
-      return res.status(400).json({
-        ok: false,
-        error: "unidad_id no existe",
+        error: "autotanque_id es requerido (id de ID-PDV-AUTOTANQUE, el mismo que en la consola)",
       });
     }
 
@@ -649,9 +664,8 @@ export async function postInicioRuta(req: Request, res: Response) {
         ? false
         : Boolean(gps_fix);
 
-    const evento = await insertEventoInicioRuta({
-      unidad_db_id: unidad.id,
-      unidad_clave: unidad.clave,
+    const evento = await insertEventoInicioRutaAutotanque({
+      autotanque_id,
       lat: latNum,
       lon: lonNum,
       nivel: nivelNum,
@@ -696,11 +710,17 @@ export async function postInicioRuta(req: Request, res: Response) {
 
 export async function getPedidosConsola(req: Request, res: Response) {
   try {
-    const unidadClaveRaw = req.query.unidad_clave;
-    if (!unidadClaveRaw || typeof unidadClaveRaw !== "string") {
+    const atqRaw = req.query.autotanque_id;
+    const autotanqueId =
+      typeof atqRaw === "string"
+        ? atqRaw.trim()
+        : atqRaw != null
+          ? String(atqRaw).trim()
+          : "";
+    if (!autotanqueId || !/^\d+$/.test(autotanqueId)) {
       return res.status(400).json({
         ok: false,
-        error: "query unidad_clave requerido",
+        error: "query autotanque_id requerido (id de ID-PDV-AUTOTANQUE)",
       });
     }
 
@@ -708,13 +728,8 @@ export async function getPedidosConsola(req: Request, res: Response) {
     const limit =
       typeof limitRaw === "string" ? Number(limitRaw) : Number(limitRaw ?? 100);
 
-    const unidad = await getUnidadByClave(unidadClaveRaw);
-    if (!unidad) {
-      return res.status(404).json({ ok: false, error: "unidad no encontrada" });
-    }
-
-    const pedidos = await listPedidosParaConsolaUnidad(
-      unidad.id,
+    const pedidos = await listPedidosParaConsolaAutotanque(
+      autotanqueId,
       Number.isFinite(limit) ? limit : 100
     );
     return res.json({ ok: true, pedidos });
@@ -727,7 +742,7 @@ export async function getPedidosConsola(req: Request, res: Response) {
 export async function postPedidoConsola(req: Request, res: Response) {
   try {
     const {
-      unidad_clave,
+      autotanque_id: atqIn,
       cliente_nombre,
       telefono_origen,
       colonia,
@@ -740,8 +755,17 @@ export async function postPedidoConsola(req: Request, res: Response) {
       litros_solicitados,
     } = req.body ?? {};
 
-    if (!unidad_clave || typeof unidad_clave !== "string") {
-      return res.status(400).json({ ok: false, error: "unidad_clave requerido" });
+    const autotanque_id =
+      typeof atqIn === "string"
+        ? atqIn.trim()
+        : atqIn != null
+          ? String(atqIn).trim()
+          : "";
+    if (!autotanque_id || !/^\d+$/.test(autotanque_id)) {
+      return res.status(400).json({
+        ok: false,
+        error: "autotanque_id requerido (id de ID-PDV-AUTOTANQUE)",
+      });
     }
 
     const clienteNombre = toTrimmedString(cliente_nombre);
@@ -755,11 +779,6 @@ export async function postPedidoConsola(req: Request, res: Response) {
 
     const cpNorm = normalizeCpToInt(cp);
     const litros = parseLitrosEnteroPositivo(litros_solicitados);
-
-    const unidad = await getUnidadByClave(unidad_clave);
-    if (!unidad) {
-      return res.status(400).json({ ok: false, error: "unidad_clave no existe" });
-    }
 
     if (
       !clienteNombre ||
@@ -800,8 +819,8 @@ export async function postPedidoConsola(req: Request, res: Response) {
     const direccion_texto = `${tipoLabel} - ${nombreEmpresaNorm} | ${calleTxt} No. ${numeroExteriorTxt} Int. ${numeroInteriorNorm}, ${coloniaTxt}, CP ${cpNorm}`;
     const prioridad = prioridadDesdeLitros(litros);
 
-    const pedido = await insertPedido({
-      unidad_db_id: unidad.id,
+    const pedido = await insertPedidoAutotanque({
+      autotanque_id,
       telefono_origen: telefono,
       cliente_nombre: clienteNombre,
       direccion_texto,
@@ -832,30 +851,31 @@ export async function postPedidoAvanzarConsola(req: Request, res: Response) {
     }
 
     const {
-      unidad_clave,
+      autotanque_id: atqAv,
       nivel_carburacion,
       nivel_almacen,
     }: {
-      unidad_clave?: unknown;
+      autotanque_id?: unknown;
       nivel_carburacion?: unknown;
       nivel_almacen?: unknown;
     } = req.body ?? {};
 
-    if (!unidad_clave || typeof unidad_clave !== "string") {
-      return res.status(400).json({ ok: false, error: "unidad_clave requerido" });
-    }
-
-    const unidad = await getUnidadByClave(unidad_clave);
-    if (!unidad) {
-      return res.status(400).json({ ok: false, error: "unidad_clave no existe" });
+    const autotanque_id =
+      typeof atqAv === "string"
+        ? atqAv.trim()
+        : atqAv != null
+          ? String(atqAv).trim()
+          : "";
+    if (!autotanque_id || !/^\d+$/.test(autotanque_id)) {
+      return res.status(400).json({ ok: false, error: "autotanque_id requerido" });
     }
 
     const nivelCarb = toFiniteNumber(nivel_carburacion);
     const nivelAlm = toFiniteNumber(nivel_almacen);
 
-    const result = await avanzarPedidoEstado({
+    const result = await avanzarPedidoEstadoAutotanque({
       pedido_id: String(pedidoId),
-      unidad_db_id: unidad.id,
+      autotanque_id,
       nivel_carburacion: nivelCarb,
       nivel_almacen: nivelAlm,
     });
@@ -904,24 +924,25 @@ export async function postPedidoCancelarConsola(req: Request, res: Response) {
     }
 
     const {
-      unidad_clave,
+      autotanque_id: atqCa,
       razon_cancelacion,
       nivel_carburacion,
       nivel_almacen,
     }: {
-      unidad_clave?: unknown;
+      autotanque_id?: unknown;
       razon_cancelacion?: unknown;
       nivel_carburacion?: unknown;
       nivel_almacen?: unknown;
     } = req.body ?? {};
 
-    if (!unidad_clave || typeof unidad_clave !== "string") {
-      return res.status(400).json({ ok: false, error: "unidad_clave requerido" });
-    }
-
-    const unidad = await getUnidadByClave(unidad_clave);
-    if (!unidad) {
-      return res.status(400).json({ ok: false, error: "unidad_clave no existe" });
+    const autotanque_id =
+      typeof atqCa === "string"
+        ? atqCa.trim()
+        : atqCa != null
+          ? String(atqCa).trim()
+          : "";
+    if (!autotanque_id || !/^\d+$/.test(autotanque_id)) {
+      return res.status(400).json({ ok: false, error: "autotanque_id requerido" });
     }
 
     const razon = toTrimmedString(razon_cancelacion);
@@ -935,9 +956,9 @@ export async function postPedidoCancelarConsola(req: Request, res: Response) {
     const nivelCarb = toFiniteNumber(nivel_carburacion);
     const nivelAlm = toFiniteNumber(nivel_almacen);
 
-    await cancelarPedido({
+    await cancelarPedidoAutotanque({
       pedido_id: String(pedidoId),
-      unidad_db_id: unidad.id,
+      autotanque_id,
       razon_cancelacion: razon,
       nivel_carburacion: nivelCarb,
       nivel_almacen: nivelAlm,
