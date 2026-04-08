@@ -7,6 +7,7 @@ exports.getUnidadesConsola = getUnidadesConsola;
 exports.getPlantasConsola = getPlantasConsola;
 exports.getPdvConsola = getPdvConsola;
 exports.getPdvEstacionConsola = getPdvEstacionConsola;
+exports.getPdvAlmacenConsola = getPdvAlmacenConsola;
 exports.getTelemetriaConsola = getTelemetriaConsola;
 exports.getEventosConsola = getEventosConsola;
 exports.postInicioRuta = postInicioRuta;
@@ -179,6 +180,36 @@ async function getPdvEstacionConsola(req, res) {
             });
         }
         return res.status(500).json({ ok: false, error: "Error listando estaciones" });
+    }
+}
+async function getPdvAlmacenConsola(req, res) {
+    try {
+        const plantaIdRaw = req.query.planta_id;
+        const plantaId = typeof plantaIdRaw === "string"
+            ? plantaIdRaw.trim()
+            : plantaIdRaw != null
+                ? String(plantaIdRaw).trim()
+                : "";
+        if (!plantaId || !/^\d+$/.test(plantaId)) {
+            return res.status(400).json({
+                ok: false,
+                error: "query planta_id requerido (id numérico de la planta)",
+            });
+        }
+        const almacenes = await (0, plantasPdv_service_1.listAlmacenesPorPlanta)(plantaId);
+        return res.json({ ok: true, almacenes });
+    }
+    catch (error) {
+        console.error("[consola] getPdvAlmacen:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existe la tabla ID-PDV-ALMACEN en PostgreSQL.",
+                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/014_id_pdv_almacen.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error listando almacenes" });
     }
 }
 async function getTelemetriaConsola(req, res) {

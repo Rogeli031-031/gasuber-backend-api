@@ -59,7 +59,8 @@ body {
 }
 
 /* Asegura que el bloque de estación sea visible al quitarse hidden (evita rarezas de CSS global). */
-#sidebarEstacionWrap:not([hidden]) {
+#sidebarEstacionWrap:not([hidden]),
+#sidebarAlmacenWrap:not([hidden]) {
   display: block;
 }
 

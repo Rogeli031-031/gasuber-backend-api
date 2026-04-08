@@ -10,6 +10,7 @@ exports.consolaRoutes.get("/unidades", consola_controller_1.getUnidadesConsola);
 exports.consolaRoutes.get("/plantas", consola_controller_1.getPlantasConsola);
 exports.consolaRoutes.get("/pdv", consola_controller_1.getPdvConsola);
 exports.consolaRoutes.get("/pdv-estacion", consola_controller_1.getPdvEstacionConsola);
+exports.consolaRoutes.get("/pdv-almacen", consola_controller_1.getPdvAlmacenConsola);
 exports.consolaRoutes.get("/telemetria/:clave", consola_controller_1.getTelemetriaConsola);
 exports.consolaRoutes.get("/eventos", consola_controller_1.getEventosConsola);
 exports.consolaRoutes.get("/pedidos", consola_controller_1.getPedidosConsola);

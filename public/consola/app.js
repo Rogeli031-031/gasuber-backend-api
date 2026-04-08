@@ -3,6 +3,7 @@
   const STORAGE_PLANTA_ID = "gasuber_consola_planta_id";
   const STORAGE_PDV_ID = "gasuber_consola_pdv_id";
   const STORAGE_ESTACION_ID = "gasuber_consola_estacion_id";
+  const STORAGE_ALMACEN_ID = "gasuber_consola_almacen_id";
   /** Actualización de telemetría + lista de pedidos cada 200 ms */
   const POLL_MS = 200;
 
@@ -11,6 +12,8 @@
   const selPdv = document.getElementById("selPdv");
   const selEstacion = document.getElementById("selEstacion");
   const sidebarEstacionWrap = document.getElementById("sidebarEstacionWrap");
+  const selAlmacen = document.getElementById("selAlmacen");
+  const sidebarAlmacenWrap = document.getElementById("sidebarAlmacenWrap");
   const inpApiKey = document.getElementById("inpApiKey");
   const btnGuardarKey = document.getElementById("btnGuardarKey");
   const gCarb = document.getElementById("gCarb");
@@ -93,6 +96,22 @@
     sessionStorage.removeItem(STORAGE_ESTACION_ID);
   }
 
+  function hideAlmacenBlock() {
+    if (sidebarAlmacenWrap) {
+      sidebarAlmacenWrap.hidden = true;
+      sidebarAlmacenWrap.setAttribute("hidden", "");
+    }
+    if (selAlmacen) {
+      selAlmacen.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "— Elija PDV Almacén —";
+      selAlmacen.appendChild(o);
+      selAlmacen.disabled = true;
+    }
+    sessionStorage.removeItem(STORAGE_ALMACEN_ID);
+  }
+
   function resetPdvSelect() {
     if (!selPdv) return;
     selPdv.innerHTML = "";
@@ -103,6 +122,7 @@
     selPdv.disabled = true;
     sessionStorage.removeItem(STORAGE_PDV_ID);
     hideEstacionBlock();
+    hideAlmacenBlock();
   }
 
   function normalizarNombrePdv(s) {
@@ -130,6 +150,18 @@
     return normalizarNombrePdv(meta || label) === "ESTACION";
   }
 
+  function pdvSeleccionadoEsAlmacen() {
+    if (!selPdv || selPdv.disabled) return false;
+    const idx = selPdv.selectedIndex;
+    if (idx < 0) return false;
+    const opt = selPdv.options[idx];
+    if (!opt) return false;
+    if (!String(opt.value ?? "").trim()) return false;
+    const meta = (opt.getAttribute("data-pdv-nombre") || "").trim();
+    const label = (opt.textContent || "").replace(/\s+/g, " ").trim();
+    return normalizarNombrePdv(meta || label) === "ALMACEN";
+  }
+
   function plantaPdvContextLine() {
     if (!selPlanta || !selPdv) return "";
     const plOpt = selPlanta.options[selPlanta.selectedIndex];
@@ -147,11 +179,23 @@
       const eo = selEstacion.options[selEstacion.selectedIndex];
       if (eo) es = ` · Estación: ${eo.textContent.trim()}`;
     }
-    if (!pn && !dn && !es) return "";
-    if (pn && dn) return ` · Planta: ${pn} · PDV: ${dn}${es}`;
-    if (pn) return ` · Planta: ${pn}${es}`;
-    if (dn) return ` · PDV: ${dn}${es}`;
-    return es;
+    let al = "";
+    if (
+      sidebarAlmacenWrap &&
+      !sidebarAlmacenWrap.hidden &&
+      selAlmacen &&
+      selAlmacen.value &&
+      !selAlmacen.disabled
+    ) {
+      const ao = selAlmacen.options[selAlmacen.selectedIndex];
+      if (ao) al = ` · Almacén: ${ao.textContent.trim()}`;
+    }
+    const extra = `${es}${al}`;
+    if (!pn && !dn && !extra) return "";
+    if (pn && dn) return ` · Planta: ${pn} · PDV: ${dn}${extra}`;
+    if (pn) return ` · Planta: ${pn}${extra}`;
+    if (dn) return ` · PDV: ${dn}${extra}`;
+    return extra;
   }
 
   async function cargarEstaciones(plantaId, restoreEstacion) {
@@ -220,6 +264,77 @@
     await cargarEstaciones(plantaId, restoreEstacion);
   }
 
+  async function cargarAlmacenes(plantaId, restoreAlmacen) {
+    if (!selAlmacen || !sidebarAlmacenWrap) return;
+    if (!restoreAlmacen) sessionStorage.removeItem(STORAGE_ALMACEN_ID);
+    try {
+      const data = await fetchJson(
+        "/api/consola/pdv-almacen?planta_id=" + encodeURIComponent(plantaId),
+        { headers: apiHeaders() }
+      );
+      selAlmacen.innerHTML = "";
+      const list = data.almacenes || [];
+      if (!list.length) {
+        const o = document.createElement("option");
+        o.value = "";
+        o.textContent = "Sin almacenes en BD";
+        selAlmacen.appendChild(o);
+        selAlmacen.disabled = true;
+        sessionStorage.removeItem(STORAGE_ALMACEN_ID);
+        return;
+      }
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "— Seleccione almacén —";
+      selAlmacen.appendChild(empty);
+      for (const row of list) {
+        const opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = row.nombre;
+        selAlmacen.appendChild(opt);
+      }
+      selAlmacen.disabled = false;
+      if (restoreAlmacen) {
+        const saved = sessionStorage.getItem(STORAGE_ALMACEN_ID);
+        if (saved && list.some((x) => String(x.id) === String(saved))) {
+          selAlmacen.value = saved;
+        } else {
+          sessionStorage.removeItem(STORAGE_ALMACEN_ID);
+        }
+      }
+    } catch (e) {
+      selAlmacen.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "Error cargando almacenes";
+      selAlmacen.appendChild(o);
+      selAlmacen.disabled = true;
+      sessionStorage.removeItem(STORAGE_ALMACEN_ID);
+      if (e.status !== 401) console.warn("[consola] cargarAlmacenes:", e);
+    }
+  }
+
+  async function syncAlmacenUI(restoreAlmacen) {
+    if (!sidebarAlmacenWrap || !selAlmacen) return;
+    if (!pdvSeleccionadoEsAlmacen()) {
+      hideAlmacenBlock();
+      return;
+    }
+    const plantaId = selPlanta && selPlanta.value;
+    if (!plantaId) {
+      sidebarAlmacenWrap.hidden = true;
+      return;
+    }
+    sidebarAlmacenWrap.removeAttribute("hidden");
+    sidebarAlmacenWrap.hidden = false;
+    await cargarAlmacenes(plantaId, restoreAlmacen);
+  }
+
+  async function syncPdvDetalleUI(restore) {
+    await syncEstacionUI(pdvSeleccionadoEsEstacion() ? restore : false);
+    await syncAlmacenUI(pdvSeleccionadoEsAlmacen() ? restore : false);
+  }
+
   async function cargarPdv(plantaId, restorePdv) {
     if (!selPdv) return;
     if (!plantaId) {
@@ -241,6 +356,7 @@
         selPdv.disabled = true;
         sessionStorage.removeItem(STORAGE_PDV_ID);
         hideEstacionBlock();
+        hideAlmacenBlock();
         return;
       }
       const empty = document.createElement("option");
@@ -265,7 +381,7 @@
       } else {
         sessionStorage.removeItem(STORAGE_PDV_ID);
       }
-      await syncEstacionUI(restorePdv);
+      await syncPdvDetalleUI(restorePdv);
     } catch (e) {
       selPdv.innerHTML = "";
       const o = document.createElement("option");
@@ -275,6 +391,7 @@
       selPdv.disabled = true;
       sessionStorage.removeItem(STORAGE_PDV_ID);
       hideEstacionBlock();
+      hideAlmacenBlock();
       if (e.status !== 401) console.warn("[consola] cargarPdv:", e);
     }
   }
@@ -941,7 +1058,7 @@
       if (pdvEstacionRaf) cancelAnimationFrame(pdvEstacionRaf);
       pdvEstacionRaf = requestAnimationFrame(() => {
         pdvEstacionRaf = 0;
-        void syncEstacionUI(true);
+        void syncPdvDetalleUI(true);
       });
     };
     selPdv.addEventListener("change", onPdvElegido);
@@ -954,6 +1071,16 @@
         sessionStorage.setItem(STORAGE_ESTACION_ID, selEstacion.value);
       } else {
         sessionStorage.removeItem(STORAGE_ESTACION_ID);
+      }
+    });
+  }
+
+  if (selAlmacen) {
+    selAlmacen.addEventListener("change", () => {
+      if (selAlmacen.value) {
+        sessionStorage.setItem(STORAGE_ALMACEN_ID, selAlmacen.value);
+      } else {
+        sessionStorage.removeItem(STORAGE_ALMACEN_ID);
       }
     });
   }
@@ -1131,5 +1258,6 @@
     }
     resetPdvSelect();
     if (sidebarEstacionWrap) sidebarEstacionWrap.hidden = true;
+    if (sidebarAlmacenWrap) sidebarAlmacenWrap.hidden = true;
   }
 })();
