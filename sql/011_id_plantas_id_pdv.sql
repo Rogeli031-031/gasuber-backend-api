@@ -1,25 +1,25 @@
+-- Plantas y PDV (consola). Ejecutar una vez en la base donde vive el esquema gasuber.
+-- En pgAdmin: Query Tool → pegar todo → Execute (F5).
+-- O desde la carpeta backend-api: node scripts/migrate.cjs --file=sql/011_id_plantas_id_pdv.sql
+
 BEGIN;
 
-SET search_path TO gasuber, public;
-
--- Tablas con los nombres indicados por negocio (identificadores entre comillas en PostgreSQL).
-CREATE TABLE IF NOT EXISTS "ID-PLANTAS" (
+CREATE TABLE IF NOT EXISTS gasuber."ID-PLANTAS" (
   id BIGSERIAL PRIMARY KEY,
   "NOMBRE" TEXT NOT NULL,
   CONSTRAINT uq_id_plantas_nombre UNIQUE ("NOMBRE")
 );
 
-CREATE TABLE IF NOT EXISTS "ID-PDV" (
+CREATE TABLE IF NOT EXISTS gasuber."ID-PDV" (
   id BIGSERIAL PRIMARY KEY,
-  planta_id BIGINT NOT NULL REFERENCES "ID-PLANTAS" (id) ON DELETE CASCADE,
+  planta_id BIGINT NOT NULL REFERENCES gasuber."ID-PLANTAS" (id) ON DELETE CASCADE,
   "NOMBRE" TEXT NOT NULL,
   CONSTRAINT uq_id_pdv_planta_nombre UNIQUE (planta_id, "NOMBRE")
 );
 
-CREATE INDEX IF NOT EXISTS idx_id_pdv_planta ON "ID-PDV" (planta_id);
+CREATE INDEX IF NOT EXISTS idx_id_pdv_planta ON gasuber."ID-PDV" (planta_id);
 
--- Datos iniciales (idempotente): plantas y tres PDV por cada planta.
-INSERT INTO "ID-PLANTAS" ("NOMBRE")
+INSERT INTO gasuber."ID-PLANTAS" ("NOMBRE")
 VALUES
   ('Puebla'),
   ('Tehuacan'),
@@ -29,9 +29,9 @@ VALUES
   ('Morelos')
 ON CONFLICT ("NOMBRE") DO NOTHING;
 
-INSERT INTO "ID-PDV" (planta_id, "NOMBRE")
+INSERT INTO gasuber."ID-PDV" (planta_id, "NOMBRE")
 SELECT p.id, v.tipo
-FROM "ID-PLANTAS" p
+FROM gasuber."ID-PLANTAS" p
 CROSS JOIN (
   VALUES
     ('ESTACION'),

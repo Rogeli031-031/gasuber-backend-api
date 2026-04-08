@@ -2,12 +2,15 @@
   const STORAGE_KEY = "gasuber_consola_api_key";
   const STORAGE_PLANTA_ID = "gasuber_consola_planta_id";
   const STORAGE_PDV_ID = "gasuber_consola_pdv_id";
+  const STORAGE_ESTACION_ID = "gasuber_consola_estacion_id";
   /** Actualización de telemetría + lista de pedidos cada 200 ms */
   const POLL_MS = 200;
 
   const selUnidad = document.getElementById("selUnidad");
   const selPlanta = document.getElementById("selPlanta");
   const selPdv = document.getElementById("selPdv");
+  const selEstacion = document.getElementById("selEstacion");
+  const sidebarEstacionWrap = document.getElementById("sidebarEstacionWrap");
   const inpApiKey = document.getElementById("inpApiKey");
   const btnGuardarKey = document.getElementById("btnGuardarKey");
   const gCarb = document.getElementById("gCarb");
@@ -74,6 +77,22 @@
     statusMsg.className = "status" + (kind ? " " + kind : "");
   }
 
+  function hideEstacionBlock() {
+    if (sidebarEstacionWrap) {
+      sidebarEstacionWrap.hidden = true;
+      sidebarEstacionWrap.setAttribute("hidden", "");
+    }
+    if (selEstacion) {
+      selEstacion.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "— Elija PDV Estación —";
+      selEstacion.appendChild(o);
+      selEstacion.disabled = true;
+    }
+    sessionStorage.removeItem(STORAGE_ESTACION_ID);
+  }
+
   function resetPdvSelect() {
     if (!selPdv) return;
     selPdv.innerHTML = "";
@@ -83,6 +102,32 @@
     selPdv.appendChild(o);
     selPdv.disabled = true;
     sessionStorage.removeItem(STORAGE_PDV_ID);
+    hideEstacionBlock();
+  }
+
+  function normalizarNombrePdv(s) {
+    const t = String(s ?? "").trim();
+    if (!t) return "";
+    try {
+      return t
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase();
+    } catch {
+      return t.toUpperCase();
+    }
+  }
+
+  function pdvSeleccionadoEsEstacion() {
+    if (!selPdv || selPdv.disabled) return false;
+    const idx = selPdv.selectedIndex;
+    if (idx < 0) return false;
+    const opt = selPdv.options[idx];
+    if (!opt) return false;
+    if (!String(opt.value ?? "").trim()) return false;
+    const meta = (opt.getAttribute("data-pdv-nombre") || "").trim();
+    const label = (opt.textContent || "").replace(/\s+/g, " ").trim();
+    return normalizarNombrePdv(meta || label) === "ESTACION";
   }
 
   function plantaPdvContextLine() {
@@ -91,10 +136,88 @@
     const pvOpt = selPdv.options[selPdv.selectedIndex];
     const pn = selPlanta.value && plOpt ? plOpt.textContent.trim() : "";
     const dn = selPdv.value && pvOpt && !selPdv.disabled ? pvOpt.textContent.trim() : "";
-    if (!pn && !dn) return "";
-    if (pn && dn) return ` · Planta: ${pn} · PDV: ${dn}`;
-    if (pn) return ` · Planta: ${pn}`;
-    return "";
+    let es = "";
+    if (
+      sidebarEstacionWrap &&
+      !sidebarEstacionWrap.hidden &&
+      selEstacion &&
+      selEstacion.value &&
+      !selEstacion.disabled
+    ) {
+      const eo = selEstacion.options[selEstacion.selectedIndex];
+      if (eo) es = ` · Estación: ${eo.textContent.trim()}`;
+    }
+    if (!pn && !dn && !es) return "";
+    if (pn && dn) return ` · Planta: ${pn} · PDV: ${dn}${es}`;
+    if (pn) return ` · Planta: ${pn}${es}`;
+    if (dn) return ` · PDV: ${dn}${es}`;
+    return es;
+  }
+
+  async function cargarEstaciones(plantaId, restoreEstacion) {
+    if (!selEstacion || !sidebarEstacionWrap) return;
+    if (!restoreEstacion) sessionStorage.removeItem(STORAGE_ESTACION_ID);
+    try {
+      const data = await fetchJson(
+        "/api/consola/pdv-estacion?planta_id=" + encodeURIComponent(plantaId),
+        { headers: apiHeaders() }
+      );
+      selEstacion.innerHTML = "";
+      const list = data.estaciones || [];
+      if (!list.length) {
+        const o = document.createElement("option");
+        o.value = "";
+        o.textContent = "Sin estaciones en BD";
+        selEstacion.appendChild(o);
+        selEstacion.disabled = true;
+        sessionStorage.removeItem(STORAGE_ESTACION_ID);
+        return;
+      }
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "— Seleccione estación —";
+      selEstacion.appendChild(empty);
+      for (const row of list) {
+        const opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = row.nombre;
+        selEstacion.appendChild(opt);
+      }
+      selEstacion.disabled = false;
+      if (restoreEstacion) {
+        const saved = sessionStorage.getItem(STORAGE_ESTACION_ID);
+        if (saved && list.some((x) => String(x.id) === String(saved))) {
+          selEstacion.value = saved;
+        } else {
+          sessionStorage.removeItem(STORAGE_ESTACION_ID);
+        }
+      }
+    } catch (e) {
+      selEstacion.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "Error cargando estaciones";
+      selEstacion.appendChild(o);
+      selEstacion.disabled = true;
+      sessionStorage.removeItem(STORAGE_ESTACION_ID);
+      if (e.status !== 401) console.warn("[consola] cargarEstaciones:", e);
+    }
+  }
+
+  async function syncEstacionUI(restoreEstacion) {
+    if (!sidebarEstacionWrap || !selEstacion) return;
+    if (!pdvSeleccionadoEsEstacion()) {
+      hideEstacionBlock();
+      return;
+    }
+    const plantaId = selPlanta && selPlanta.value;
+    if (!plantaId) {
+      sidebarEstacionWrap.hidden = true;
+      return;
+    }
+    sidebarEstacionWrap.removeAttribute("hidden");
+    sidebarEstacionWrap.hidden = false;
+    await cargarEstaciones(plantaId, restoreEstacion);
   }
 
   async function cargarPdv(plantaId, restorePdv) {
@@ -117,6 +240,7 @@
         selPdv.appendChild(o);
         selPdv.disabled = true;
         sessionStorage.removeItem(STORAGE_PDV_ID);
+        hideEstacionBlock();
         return;
       }
       const empty = document.createElement("option");
@@ -127,6 +251,7 @@
         const opt = document.createElement("option");
         opt.value = p.id;
         opt.textContent = p.nombre;
+        opt.setAttribute("data-pdv-nombre", p.nombre != null ? String(p.nombre) : "");
         selPdv.appendChild(opt);
       }
       selPdv.disabled = false;
@@ -140,6 +265,7 @@
       } else {
         sessionStorage.removeItem(STORAGE_PDV_ID);
       }
+      await syncEstacionUI(restorePdv);
     } catch (e) {
       selPdv.innerHTML = "";
       const o = document.createElement("option");
@@ -148,6 +274,7 @@
       selPdv.appendChild(o);
       selPdv.disabled = true;
       sessionStorage.removeItem(STORAGE_PDV_ID);
+      hideEstacionBlock();
       if (e.status !== 401) console.warn("[consola] cargarPdv:", e);
     }
   }
@@ -193,12 +320,21 @@
       selPlanta.innerHTML = "";
       const o = document.createElement("option");
       o.value = "";
+      const hint = e.data && e.data.hint;
+      const apiErr = e.data && e.data.error;
       o.textContent =
         e.status === 401
           ? "API key no válida"
-          : "Error cargando plantas";
+          : hint
+            ? "Falta crear tablas (ver aviso abajo)"
+            : "Error cargando plantas";
       selPlanta.appendChild(o);
       resetPdvSelect();
+      if (hint || apiErr) {
+        setStatus([apiErr, hint].filter(Boolean).join(" — "), "err");
+      } else if (e.status !== 401) {
+        setStatus(e.message || "Error cargando plantas", "err");
+      }
       if (e.status !== 401) console.warn("[consola] cargarPlantas:", e);
     }
   }
@@ -798,9 +934,27 @@
   }
 
   if (selPdv) {
-    selPdv.addEventListener("change", () => {
+    let pdvEstacionRaf = 0;
+    const onPdvElegido = () => {
       if (selPdv.value) sessionStorage.setItem(STORAGE_PDV_ID, selPdv.value);
       else sessionStorage.removeItem(STORAGE_PDV_ID);
+      if (pdvEstacionRaf) cancelAnimationFrame(pdvEstacionRaf);
+      pdvEstacionRaf = requestAnimationFrame(() => {
+        pdvEstacionRaf = 0;
+        void syncEstacionUI(true);
+      });
+    };
+    selPdv.addEventListener("change", onPdvElegido);
+    selPdv.addEventListener("input", onPdvElegido);
+  }
+
+  if (selEstacion) {
+    selEstacion.addEventListener("change", () => {
+      if (selEstacion.value) {
+        sessionStorage.setItem(STORAGE_ESTACION_ID, selEstacion.value);
+      } else {
+        sessionStorage.removeItem(STORAGE_ESTACION_ID);
+      }
     });
   }
 
@@ -976,5 +1130,6 @@
       selPlanta.appendChild(o);
     }
     resetPdvSelect();
+    if (sidebarEstacionWrap) sidebarEstacionWrap.hidden = true;
   }
 })();

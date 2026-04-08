@@ -13,7 +13,11 @@ import {
   cancelarPedido,
 } from "../services/pedidos.service";
 import { sendWhatsAppTextMessage } from "../services/whatsapp.service";
-import { listPlantas, listPdvPorPlanta } from "../services/plantasPdv.service";
+import {
+  listPlantas,
+  listPdvPorPlanta,
+  listEstacionesPorPlanta,
+} from "../services/plantasPdv.service";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -146,6 +150,38 @@ export async function getPdvConsola(req: Request, res: Response) {
       });
     }
     return res.status(500).json({ ok: false, error: "Error listando PDV" });
+  }
+}
+
+export async function getPdvEstacionConsola(req: Request, res: Response) {
+  try {
+    const plantaIdRaw = req.query.planta_id;
+    const plantaId =
+      typeof plantaIdRaw === "string"
+        ? plantaIdRaw.trim()
+        : plantaIdRaw != null
+          ? String(plantaIdRaw).trim()
+          : "";
+    if (!plantaId || !/^\d+$/.test(plantaId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query planta_id requerido (id numérico de la planta)",
+      });
+    }
+
+    const estaciones = await listEstacionesPorPlanta(plantaId);
+    return res.json({ ok: true, estaciones });
+  } catch (error) {
+    console.error("[consola] getPdvEstacion:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existe la tabla ID-PDV-ESTACION en PostgreSQL.",
+        hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/012_id_pdv_estacion.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando estaciones" });
   }
 }
 

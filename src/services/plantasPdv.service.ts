@@ -11,6 +11,14 @@ export type PdvRow = {
   nombre: string;
 };
 
+export type EstacionRow = {
+  id: string;
+  planta_id: string;
+  nombre: string;
+  tanque: string;
+  capacidad: string;
+};
+
 export async function listPlantas(): Promise<PlantaRow[]> {
   const { rows } = await db.query<{ id: string; nombre: string }>(
     `SELECT id::text, "NOMBRE" AS nombre
@@ -28,6 +36,29 @@ export async function listPdvPorPlanta(plantaId: string): Promise<PdvRow[]> {
   }>(
     `SELECT id::text, planta_id::text, "NOMBRE" AS nombre
      FROM "ID-PDV"
+     WHERE planta_id = $1::bigint
+     ORDER BY "NOMBRE" ASC`,
+    [plantaId]
+  );
+  return rows;
+}
+
+export async function listEstacionesPorPlanta(
+  plantaId: string
+): Promise<EstacionRow[]> {
+  const { rows } = await db.query<{
+    id: string;
+    planta_id: string;
+    nombre: string;
+    tanque: string;
+    capacidad: string;
+  }>(
+    `SELECT id::text,
+            planta_id::text,
+            "NOMBRE" AS nombre,
+            "TANQUE"::text AS tanque,
+            "CAPACIDAD"::text AS capacidad
+     FROM "ID-PDV-ESTACION"
      WHERE planta_id = $1::bigint
      ORDER BY "NOMBRE" ASC`,
     [plantaId]
