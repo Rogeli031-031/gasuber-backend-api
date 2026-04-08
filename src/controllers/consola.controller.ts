@@ -20,6 +20,12 @@ import {
   listAlmacenesPorPlanta,
   listAutotanquesPorPlanta,
 } from "../services/plantasPdv.service";
+import {
+  listPuestosTripulacion,
+  listEmpleadosTripulacionDisponibles,
+  getAsignacionPorAutotanque,
+  guardarAsignacionTripulacion,
+} from "../services/tripulacion.service";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -248,6 +254,168 @@ export async function getPdvAutotanqueConsola(req: Request, res: Response) {
       });
     }
     return res.status(500).json({ ok: false, error: "Error listando autotanques" });
+  }
+}
+
+export async function getTripulacionPuestosConsola(_req: Request, res: Response) {
+  try {
+    const puestos = await listPuestosTripulacion();
+    return res.json({ ok: true, puestos });
+  } catch (error) {
+    console.error("[consola] getTripulacionPuestos:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existen tablas de tripulación en PostgreSQL.",
+        hint: "node scripts/migrate.cjs --file=sql/018_tripulacion_autotanque.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando puestos" });
+  }
+}
+
+export async function getTripulacionEmpleadosConsola(req: Request, res: Response) {
+  try {
+    const plantaIdRaw = req.query.planta_id;
+    const puestoRaw = req.query.puesto;
+    const autotanqueIdRaw = req.query.autotanque_id;
+    const plantaId =
+      typeof plantaIdRaw === "string" ? plantaIdRaw.trim() : String(plantaIdRaw ?? "").trim();
+    const puesto =
+      typeof puestoRaw === "string" ? puestoRaw.trim().toUpperCase() : "";
+    const autotanqueId =
+      typeof autotanqueIdRaw === "string"
+        ? autotanqueIdRaw.trim()
+        : autotanqueIdRaw != null
+          ? String(autotanqueIdRaw).trim()
+          : "";
+
+    if (!plantaId || !/^\d+$/.test(plantaId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query planta_id requerido",
+      });
+    }
+    if (puesto !== "CHOFER" && puesto !== "AYUDANTE") {
+      return res.status(400).json({
+        ok: false,
+        error: "query puesto debe ser CHOFER o AYUDANTE",
+      });
+    }
+    if (!autotanqueId || !/^\d+$/.test(autotanqueId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query autotanque_id requerido",
+      });
+    }
+
+    const empleados = await listEmpleadosTripulacionDisponibles({
+      plantaId,
+      puestoCodigo: puesto,
+      autotanqueIdExcluirActual: autotanqueId,
+    });
+    return res.json({ ok: true, empleados });
+  } catch (error) {
+    console.error("[consola] getTripulacionEmpleados:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existen tablas de tripulación en PostgreSQL.",
+        hint: "node scripts/migrate.cjs --file=sql/018_tripulacion_autotanque.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando empleados" });
+  }
+}
+
+export async function getTripulacionAsignacionConsola(req: Request, res: Response) {
+  try {
+    const atqRaw = req.query.autotanque_id;
+    const autotanqueId =
+      typeof atqRaw === "string" ? atqRaw.trim() : String(atqRaw ?? "").trim();
+    if (!autotanqueId || !/^\d+$/.test(autotanqueId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query autotanque_id requerido",
+      });
+    }
+    const asignacion = await getAsignacionPorAutotanque(autotanqueId);
+    return res.json({ ok: true, asignacion });
+  } catch (error) {
+    console.error("[consola] getTripulacionAsignacion:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existen tablas de tripulación en PostgreSQL.",
+        hint: "node scripts/migrate.cjs --file=sql/018_tripulacion_autotanque.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error leyendo asignación" });
+  }
+}
+
+export async function postTripulacionAsignacionConsola(req: Request, res: Response) {
+  try {
+    const { autotanque_id, chofer_empleado_id, ayudante_empleado_id } = req.body ?? {};
+    const atq =
+      typeof autotanque_id === "string"
+        ? autotanque_id.trim()
+        : autotanque_id != null
+          ? String(autotanque_id).trim()
+          : "";
+    const ch =
+      typeof chofer_empleado_id === "string"
+        ? chofer_empleado_id.trim()
+        : chofer_empleado_id != null
+          ? String(chofer_empleado_id).trim()
+          : "";
+    const ay =
+      typeof ayudante_empleado_id === "string"
+        ? ayudante_empleado_id.trim()
+        : ayudante_empleado_id != null
+          ? String(ayudante_empleado_id).trim()
+          : "";
+
+    if (!atq || !/^\d+$/.test(atq)) {
+      return res.status(400).json({ ok: false, error: "autotanque_id inválido" });
+    }
+    if (!ch || !/^\d+$/.test(ch)) {
+      return res.status(400).json({ ok: false, error: "chofer_empleado_id requerido" });
+    }
+    if (!ay || !/^\d+$/.test(ay)) {
+      return res.status(400).json({ ok: false, error: "ayudante_empleado_id requerido" });
+    }
+
+    const result = await guardarAsignacionTripulacion({
+      autotanqueId: atq,
+      choferEmpleadoId: ch,
+      ayudanteEmpleadoId: ay,
+    });
+    return res.status(201).json({ ok: true, ...result });
+  } catch (error) {
+    console.error("[consola] postTripulacionAsignacion:", error);
+    const pg = error as { code?: string; message?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existen tablas de tripulación en PostgreSQL.",
+        hint: "node scripts/migrate.cjs --file=sql/018_tripulacion_autotanque.sql",
+      });
+    }
+    if (pg.code === "23505") {
+      return res.status(409).json({
+        ok: false,
+        error: "Conflicto de asignación (empleado u autotanque duplicado).",
+      });
+    }
+    const e = error as { status?: number; message?: string };
+    if (e.status && e.message) {
+      return res.status(e.status).json({ ok: false, error: e.message });
+    }
+    return res.status(500).json({ ok: false, error: "Error guardando asignación" });
   }
 }
 

@@ -52,6 +52,24 @@
               <option value="">— Elija PDV Autotanque —</option>
             </select>
           </div>
+          <div class="sidebar-block sidebar-tripulacion" id="sidebarTripulacionWrap" hidden>
+            <span class="sidebar-label">Tripulación</span>
+            <p class="tripulacion-hint">
+              Un chofer y un ayudante por autotanque. Cada empleado solo en un número.
+            </p>
+            <label class="sidebar-sublabel" for="selTripulacionChofer">Chofer</label>
+            <select id="selTripulacionChofer" aria-label="Chofer (catálogo planta)" disabled>
+              <option value="">— Elija autotanque primero —</option>
+            </select>
+            <label class="sidebar-sublabel" for="selTripulacionAyudante">Ayudante</label>
+            <select id="selTripulacionAyudante" aria-label="Ayudante (catálogo planta)" disabled>
+              <option value="">— Elija autotanque primero —</option>
+            </select>
+            <p class="tripulacion-fecha" id="tripulacionFecha" aria-live="polite"></p>
+            <button type="button" id="btnGuardarTripulacion" class="btn secondary tripulacion-btn" disabled>
+              Guardar tripulación
+            </button>
+          </div>
         </aside>
         <div class="main-column">
       <header class="header">
@@ -221,6 +239,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=autotanque-ui-1"></script>
+    <script src="./app.js?v=tripulacion-ui-1"></script>
   </body>
 </html>

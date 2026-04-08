@@ -17,6 +17,12 @@
   const sidebarAlmacenWrap = document.getElementById("sidebarAlmacenWrap");
   const selAutotanque = document.getElementById("selAutotanque");
   const sidebarAutotanqueWrap = document.getElementById("sidebarAutotanqueWrap");
+  const sidebarTripulacionWrap = document.getElementById("sidebarTripulacionWrap");
+  const selTripulacionChofer = document.getElementById("selTripulacionChofer");
+  const selTripulacionAyudante = document.getElementById("selTripulacionAyudante");
+  const tripulacionFecha = document.getElementById("tripulacionFecha");
+  const btnGuardarTripulacion = document.getElementById("btnGuardarTripulacion");
+  let tripulacionSaving = false;
   const inpApiKey = document.getElementById("inpApiKey");
   const btnGuardarKey = document.getElementById("btnGuardarKey");
   const gCarb = document.getElementById("gCarb");
@@ -115,6 +121,31 @@
     sessionStorage.removeItem(STORAGE_ALMACEN_ID);
   }
 
+  function hideTripulacionPanel() {
+    if (sidebarTripulacionWrap) {
+      sidebarTripulacionWrap.hidden = true;
+      sidebarTripulacionWrap.setAttribute("hidden", "");
+    }
+    if (selTripulacionChofer) {
+      selTripulacionChofer.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "— Elija autotanque primero —";
+      selTripulacionChofer.appendChild(o);
+      selTripulacionChofer.disabled = true;
+    }
+    if (selTripulacionAyudante) {
+      selTripulacionAyudante.innerHTML = "";
+      const o2 = document.createElement("option");
+      o2.value = "";
+      o2.textContent = "— Elija autotanque primero —";
+      selTripulacionAyudante.appendChild(o2);
+      selTripulacionAyudante.disabled = true;
+    }
+    if (tripulacionFecha) tripulacionFecha.textContent = "";
+    if (btnGuardarTripulacion) btnGuardarTripulacion.disabled = true;
+  }
+
   function hideAutotanqueBlock() {
     if (sidebarAutotanqueWrap) {
       sidebarAutotanqueWrap.hidden = true;
@@ -129,6 +160,7 @@
       selAutotanque.disabled = true;
     }
     sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+    hideTripulacionPanel();
   }
 
   function resetPdvSelect() {
@@ -437,6 +469,174 @@
     sidebarAutotanqueWrap.removeAttribute("hidden");
     sidebarAutotanqueWrap.hidden = false;
     await cargarAutotanques(plantaId, restoreAutotanque);
+    await refreshTripulacionPanel();
+  }
+
+  function updateTripulacionGuardarBtn() {
+    if (!btnGuardarTripulacion) return;
+    const ok =
+      selTripulacionChofer &&
+      selTripulacionAyudante &&
+      selTripulacionChofer.value &&
+      selTripulacionAyudante.value &&
+      pdvSeleccionadoEsAutotanque() &&
+      selAutotanque &&
+      selAutotanque.value;
+    btnGuardarTripulacion.disabled = !ok || tripulacionSaving;
+  }
+
+  async function refreshTripulacionPanel() {
+    if (!sidebarTripulacionWrap || !selTripulacionChofer || !selTripulacionAyudante) {
+      return;
+    }
+    if (!pdvSeleccionadoEsAutotanque() || !selAutotanque || !selAutotanque.value) {
+      hideTripulacionPanel();
+      return;
+    }
+    const plantaId = selPlanta && selPlanta.value;
+    const atqId = selAutotanque.value;
+    if (!plantaId) {
+      hideTripulacionPanel();
+      return;
+    }
+    sidebarTripulacionWrap.removeAttribute("hidden");
+    sidebarTripulacionWrap.hidden = false;
+    try {
+      const baseQ =
+        "planta_id=" +
+        encodeURIComponent(plantaId) +
+        "&autotanque_id=" +
+        encodeURIComponent(atqId);
+      const [dataCh, dataAy, dataAsig] = await Promise.all([
+        fetchJson("/api/consola/tripulacion/empleados?puesto=CHOFER&" + baseQ, {
+          headers: apiHeaders(),
+        }),
+        fetchJson("/api/consola/tripulacion/empleados?puesto=AYUDANTE&" + baseQ, {
+          headers: apiHeaders(),
+        }),
+        fetchJson(
+          "/api/consola/tripulacion/asignacion?autotanque_id=" +
+            encodeURIComponent(atqId),
+          { headers: apiHeaders() }
+        ),
+      ]);
+
+      const fillSel = (sel, list, emptyLabel) => {
+        sel.innerHTML = "";
+        const em = document.createElement("option");
+        em.value = "";
+        em.textContent = emptyLabel;
+        sel.appendChild(em);
+        for (const row of list) {
+          const opt = document.createElement("option");
+          opt.value = row.id;
+          opt.textContent = row.nombre_empleado;
+          sel.appendChild(opt);
+        }
+        sel.disabled = false;
+      };
+
+      fillSel(
+        selTripulacionChofer,
+        dataCh.empleados || [],
+        "— Seleccione chofer —"
+      );
+      fillSel(
+        selTripulacionAyudante,
+        dataAy.empleados || [],
+        "— Seleccione ayudante —"
+      );
+
+      const asig = dataAsig.asignacion;
+      const ensureOpt = (sel, id, label) => {
+        if (!id || !label) return;
+        const exists = Array.from(sel.options).some((o) => o.value === String(id));
+        if (!exists) {
+          const opt = document.createElement("option");
+          opt.value = String(id);
+          opt.textContent = label;
+          sel.appendChild(opt);
+        }
+      };
+      if (asig && asig.chofer) {
+        ensureOpt(
+          selTripulacionChofer,
+          asig.chofer.empleado_id,
+          asig.chofer.nombre_empleado
+        );
+      }
+      if (asig && asig.ayudante) {
+        ensureOpt(
+          selTripulacionAyudante,
+          asig.ayudante.empleado_id,
+          asig.ayudante.nombre_empleado
+        );
+      }
+      if (asig?.chofer?.empleado_id) {
+        selTripulacionChofer.value = asig.chofer.empleado_id;
+      }
+      if (asig?.ayudante?.empleado_id) {
+        selTripulacionAyudante.value = asig.ayudante.empleado_id;
+      }
+      const fe =
+        (asig && asig.chofer && asig.chofer.fecha_asignacion) ||
+        (asig && asig.ayudante && asig.ayudante.fecha_asignacion) ||
+        "";
+      if (tripulacionFecha) {
+        tripulacionFecha.textContent = fe
+          ? "Última asignación: " +
+            new Date(fe).toLocaleString("es-MX", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "Sin asignación guardada.";
+      }
+      updateTripulacionGuardarBtn();
+    } catch (e) {
+      hideTripulacionPanel();
+      if (e.status !== 401) console.warn("[consola] refreshTripulacionPanel:", e);
+    }
+  }
+
+  async function guardarTripulacion() {
+    if (
+      tripulacionSaving ||
+      !selAutotanque ||
+      !selTripulacionChofer ||
+      !selTripulacionAyudante
+    ) {
+      return;
+    }
+    const atq = selAutotanque.value;
+    const ch = selTripulacionChofer.value;
+    const ay = selTripulacionAyudante.value;
+    if (!atq || !ch || !ay) {
+      setStatus("Seleccione chofer y ayudante.", "err");
+      return;
+    }
+    tripulacionSaving = true;
+    updateTripulacionGuardarBtn();
+    setStatus("Guardando tripulación…", "");
+    try {
+      await fetchJson("/api/consola/tripulacion/asignacion", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify({
+          autotanque_id: atq,
+          chofer_empleado_id: ch,
+          ayudante_empleado_id: ay,
+        }),
+      });
+      setStatus("Tripulación guardada.", "ok");
+      await refreshTripulacionPanel();
+    } catch (e) {
+      let msg = e.message || String(e);
+      if (e.data && e.data.error) msg = e.data.error;
+      setStatus(msg, "err");
+    } finally {
+      tripulacionSaving = false;
+      updateTripulacionGuardarBtn();
+    }
   }
 
   async function syncPdvDetalleUI(restore) {
@@ -1204,7 +1404,18 @@
       } else {
         sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
       }
+      void refreshTripulacionPanel();
     });
+  }
+
+  if (selTripulacionChofer) {
+    selTripulacionChofer.addEventListener("change", updateTripulacionGuardarBtn);
+  }
+  if (selTripulacionAyudante) {
+    selTripulacionAyudante.addEventListener("change", updateTripulacionGuardarBtn);
+  }
+  if (btnGuardarTripulacion) {
+    btnGuardarTripulacion.addEventListener("click", () => void guardarTripulacion());
   }
 
   btnInicioRuta.addEventListener("click", guardarInicioRuta);
@@ -1382,5 +1593,6 @@
     if (sidebarEstacionWrap) sidebarEstacionWrap.hidden = true;
     if (sidebarAlmacenWrap) sidebarAlmacenWrap.hidden = true;
     if (sidebarAutotanqueWrap) sidebarAutotanqueWrap.hidden = true;
+    if (sidebarTripulacionWrap) sidebarTripulacionWrap.hidden = true;
   }
 })();
