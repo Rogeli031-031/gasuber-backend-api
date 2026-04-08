@@ -702,8 +702,9 @@
 
   function updateTarjetaGuardarBtn() {
     if (!btnGuardarTarjeta || !selTarjeta) return;
-    const changed = String(selTarjeta.value || "") !== String(tarjetaSavedId || "");
-    btnGuardarTarjeta.disabled = tarjetaSaving || !changed;
+    // Siempre habilitado con panel visible (salvo durante guardado): antes exigía "cambio"
+    // respecto a BD y bloqueaba el botón si ya estaba RPI-001, confundiendo al usuario.
+    btnGuardarTarjeta.disabled = tarjetaSaving;
   }
 
   async function refreshTarjetaPanel() {
