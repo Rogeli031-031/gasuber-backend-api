@@ -17,6 +17,8 @@ export type EstacionRow = {
   nombre: string;
   tanque: string;
   capacidad: string;
+  tarjeta_id: string | null;
+  tarjeta_nombre: string | null;
 };
 
 export type AlmacenRow = {
@@ -25,6 +27,8 @@ export type AlmacenRow = {
   nombre: string;
   tanque: string;
   capacidad: string;
+  tarjeta_id: string | null;
+  tarjeta_nombre: string | null;
 };
 
 export type AutotanqueRow = {
@@ -36,6 +40,8 @@ export type AutotanqueRow = {
   serie: string;
   placas: string;
   capacidad: string;
+  tarjeta_id: string | null;
+  tarjeta_nombre: string | null;
 };
 
 export async function listPlantas(): Promise<PlantaRow[]> {
@@ -71,15 +77,20 @@ export async function listEstacionesPorPlanta(
     nombre: string;
     tanque: string;
     capacidad: string;
+    tarjeta_id: string | null;
+    tarjeta_nombre: string | null;
   }>(
-    `SELECT id::text,
-            planta_id::text,
-            "NOMBRE" AS nombre,
-            "TANQUE"::text AS tanque,
-            "CAPACIDAD"::text AS capacidad
-     FROM "ID-PDV-ESTACION"
-     WHERE planta_id = $1::bigint
-     ORDER BY "NOMBRE" ASC`,
+    `SELECT e.id::text,
+            e.planta_id::text,
+            e."NOMBRE" AS nombre,
+            e."TANQUE"::text AS tanque,
+            e."CAPACIDAD"::text AS capacidad,
+            t.id::text AS tarjeta_id,
+            t."NOMBRE" AS tarjeta_nombre
+     FROM "ID-PDV-ESTACION" e
+     LEFT JOIN "ID-TARJETA" t ON t.id = e.tarjeta_id
+     WHERE e.planta_id = $1::bigint
+     ORDER BY e."NOMBRE" ASC`,
     [plantaId]
   );
   return rows;
@@ -94,15 +105,20 @@ export async function listAlmacenesPorPlanta(
     nombre: string;
     tanque: string;
     capacidad: string;
+    tarjeta_id: string | null;
+    tarjeta_nombre: string | null;
   }>(
-    `SELECT id::text,
-            planta_id::text,
-            "NOMBRE" AS nombre,
-            "TANQUE"::text AS tanque,
-            "CAPACIDAD"::text AS capacidad
-     FROM "ID-PDV-ALMACEN"
-     WHERE planta_id = $1::bigint
-     ORDER BY "NOMBRE" ASC`,
+    `SELECT a.id::text,
+            a.planta_id::text,
+            a."NOMBRE" AS nombre,
+            a."TANQUE"::text AS tanque,
+            a."CAPACIDAD"::text AS capacidad,
+            t.id::text AS tarjeta_id,
+            t."NOMBRE" AS tarjeta_nombre
+     FROM "ID-PDV-ALMACEN" a
+     LEFT JOIN "ID-TARJETA" t ON t.id = a.tarjeta_id
+     WHERE a.planta_id = $1::bigint
+     ORDER BY a."NOMBRE" ASC`,
     [plantaId]
   );
   return rows;
@@ -120,18 +136,23 @@ export async function listAutotanquesPorPlanta(
     serie: string;
     placas: string;
     capacidad: string;
+    tarjeta_id: string | null;
+    tarjeta_nombre: string | null;
   }>(
-    `SELECT id::text,
-            planta_id::text,
-            "NUMERO"::text AS numero,
-            "MARCA"::text AS marca,
-            "MODELO"::text AS modelo,
-            "SERIE"::text AS serie,
-            "PLACAS"::text AS placas,
-            "CAPACIDAD"::text AS capacidad
-     FROM "ID-PDV-AUTOTANQUE"
-     WHERE planta_id = $1::bigint
-     ORDER BY "NUMERO" ASC`,
+    `SELECT atq.id::text,
+            atq.planta_id::text,
+            atq."NUMERO"::text AS numero,
+            atq."MARCA"::text AS marca,
+            atq."MODELO"::text AS modelo,
+            atq."SERIE"::text AS serie,
+            atq."PLACAS"::text AS placas,
+            atq."CAPACIDAD"::text AS capacidad,
+            t.id::text AS tarjeta_id,
+            t."NOMBRE" AS tarjeta_nombre
+     FROM "ID-PDV-AUTOTANQUE" atq
+     LEFT JOIN "ID-TARJETA" t ON t.id = atq.tarjeta_id
+     WHERE atq.planta_id = $1::bigint
+     ORDER BY atq."NUMERO" ASC`,
     [plantaId]
   );
   return rows;
