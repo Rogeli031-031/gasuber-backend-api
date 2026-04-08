@@ -18,6 +18,7 @@ import {
   listPdvPorPlanta,
   listEstacionesPorPlanta,
   listAlmacenesPorPlanta,
+  listAutotanquesPorPlanta,
 } from "../services/plantasPdv.service";
 
 function toFiniteNumber(value: unknown): number | null {
@@ -215,6 +216,38 @@ export async function getPdvAlmacenConsola(req: Request, res: Response) {
       });
     }
     return res.status(500).json({ ok: false, error: "Error listando almacenes" });
+  }
+}
+
+export async function getPdvAutotanqueConsola(req: Request, res: Response) {
+  try {
+    const plantaIdRaw = req.query.planta_id;
+    const plantaId =
+      typeof plantaIdRaw === "string"
+        ? plantaIdRaw.trim()
+        : plantaIdRaw != null
+          ? String(plantaIdRaw).trim()
+          : "";
+    if (!plantaId || !/^\d+$/.test(plantaId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query planta_id requerido (id numérico de la planta)",
+      });
+    }
+
+    const autotanques = await listAutotanquesPorPlanta(plantaId);
+    return res.json({ ok: true, autotanques });
+  } catch (error) {
+    console.error("[consola] getPdvAutotanque:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existe la tabla ID-PDV-AUTOTANQUE en PostgreSQL.",
+        hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/016_id_pdv_autotanque.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando autotanques" });
   }
 }
 

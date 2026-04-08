@@ -60,7 +60,8 @@ body {
 
 /* Asegura que el bloque de estación sea visible al quitarse hidden (evita rarezas de CSS global). */
 #sidebarEstacionWrap:not([hidden]),
-#sidebarAlmacenWrap:not([hidden]) {
+#sidebarAlmacenWrap:not([hidden]),
+#sidebarAutotanqueWrap:not([hidden]) {
   display: block;
 }
 

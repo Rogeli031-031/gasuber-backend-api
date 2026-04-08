@@ -8,6 +8,7 @@ exports.getPlantasConsola = getPlantasConsola;
 exports.getPdvConsola = getPdvConsola;
 exports.getPdvEstacionConsola = getPdvEstacionConsola;
 exports.getPdvAlmacenConsola = getPdvAlmacenConsola;
+exports.getPdvAutotanqueConsola = getPdvAutotanqueConsola;
 exports.getTelemetriaConsola = getTelemetriaConsola;
 exports.getEventosConsola = getEventosConsola;
 exports.postInicioRuta = postInicioRuta;
@@ -210,6 +211,36 @@ async function getPdvAlmacenConsola(req, res) {
             });
         }
         return res.status(500).json({ ok: false, error: "Error listando almacenes" });
+    }
+}
+async function getPdvAutotanqueConsola(req, res) {
+    try {
+        const plantaIdRaw = req.query.planta_id;
+        const plantaId = typeof plantaIdRaw === "string"
+            ? plantaIdRaw.trim()
+            : plantaIdRaw != null
+                ? String(plantaIdRaw).trim()
+                : "";
+        if (!plantaId || !/^\d+$/.test(plantaId)) {
+            return res.status(400).json({
+                ok: false,
+                error: "query planta_id requerido (id numérico de la planta)",
+            });
+        }
+        const autotanques = await (0, plantasPdv_service_1.listAutotanquesPorPlanta)(plantaId);
+        return res.json({ ok: true, autotanques });
+    }
+    catch (error) {
+        console.error("[consola] getPdvAutotanque:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existe la tabla ID-PDV-AUTOTANQUE en PostgreSQL.",
+                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/016_id_pdv_autotanque.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error listando autotanques" });
     }
 }
 async function getTelemetriaConsola(req, res) {

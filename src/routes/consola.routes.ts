@@ -6,6 +6,7 @@ import {
   getPdvConsola,
   getPdvEstacionConsola,
   getPdvAlmacenConsola,
+  getPdvAutotanqueConsola,
   getTelemetriaConsola,
   getEventosConsola,
   getPedidosConsola,
@@ -24,6 +25,7 @@ consolaRoutes.get("/plantas", getPlantasConsola);
 consolaRoutes.get("/pdv", getPdvConsola);
 consolaRoutes.get("/pdv-estacion", getPdvEstacionConsola);
 consolaRoutes.get("/pdv-almacen", getPdvAlmacenConsola);
+consolaRoutes.get("/pdv-autotanque", getPdvAutotanqueConsola);
 consolaRoutes.get("/telemetria/:clave", getTelemetriaConsola);
 consolaRoutes.get("/eventos", getEventosConsola);
 consolaRoutes.get("/pedidos", getPedidosConsola);

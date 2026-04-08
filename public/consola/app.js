@@ -4,6 +4,7 @@
   const STORAGE_PDV_ID = "gasuber_consola_pdv_id";
   const STORAGE_ESTACION_ID = "gasuber_consola_estacion_id";
   const STORAGE_ALMACEN_ID = "gasuber_consola_almacen_id";
+  const STORAGE_AUTOTANQUE_ID = "gasuber_consola_autotanque_id";
   /** Actualización de telemetría + lista de pedidos cada 200 ms */
   const POLL_MS = 200;
 
@@ -14,6 +15,8 @@
   const sidebarEstacionWrap = document.getElementById("sidebarEstacionWrap");
   const selAlmacen = document.getElementById("selAlmacen");
   const sidebarAlmacenWrap = document.getElementById("sidebarAlmacenWrap");
+  const selAutotanque = document.getElementById("selAutotanque");
+  const sidebarAutotanqueWrap = document.getElementById("sidebarAutotanqueWrap");
   const inpApiKey = document.getElementById("inpApiKey");
   const btnGuardarKey = document.getElementById("btnGuardarKey");
   const gCarb = document.getElementById("gCarb");
@@ -112,6 +115,22 @@
     sessionStorage.removeItem(STORAGE_ALMACEN_ID);
   }
 
+  function hideAutotanqueBlock() {
+    if (sidebarAutotanqueWrap) {
+      sidebarAutotanqueWrap.hidden = true;
+      sidebarAutotanqueWrap.setAttribute("hidden", "");
+    }
+    if (selAutotanque) {
+      selAutotanque.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "— Elija PDV Autotanque —";
+      selAutotanque.appendChild(o);
+      selAutotanque.disabled = true;
+    }
+    sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+  }
+
   function resetPdvSelect() {
     if (!selPdv) return;
     selPdv.innerHTML = "";
@@ -123,6 +142,7 @@
     sessionStorage.removeItem(STORAGE_PDV_ID);
     hideEstacionBlock();
     hideAlmacenBlock();
+    hideAutotanqueBlock();
   }
 
   function normalizarNombrePdv(s) {
@@ -162,6 +182,18 @@
     return normalizarNombrePdv(meta || label) === "ALMACEN";
   }
 
+  function pdvSeleccionadoEsAutotanque() {
+    if (!selPdv || selPdv.disabled) return false;
+    const idx = selPdv.selectedIndex;
+    if (idx < 0) return false;
+    const opt = selPdv.options[idx];
+    if (!opt) return false;
+    if (!String(opt.value ?? "").trim()) return false;
+    const meta = (opt.getAttribute("data-pdv-nombre") || "").trim();
+    const label = (opt.textContent || "").replace(/\s+/g, " ").trim();
+    return normalizarNombrePdv(meta || label) === "AUTOTANQUE";
+  }
+
   function plantaPdvContextLine() {
     if (!selPlanta || !selPdv) return "";
     const plOpt = selPlanta.options[selPlanta.selectedIndex];
@@ -190,7 +222,18 @@
       const ao = selAlmacen.options[selAlmacen.selectedIndex];
       if (ao) al = ` · Almacén: ${ao.textContent.trim()}`;
     }
-    const extra = `${es}${al}`;
+    let at = "";
+    if (
+      sidebarAutotanqueWrap &&
+      !sidebarAutotanqueWrap.hidden &&
+      selAutotanque &&
+      selAutotanque.value &&
+      !selAutotanque.disabled
+    ) {
+      const ax = selAutotanque.options[selAutotanque.selectedIndex];
+      if (ax) at = ` · Autotanque: ${ax.textContent.trim()}`;
+    }
+    const extra = `${es}${al}${at}`;
     if (!pn && !dn && !extra) return "";
     if (pn && dn) return ` · Planta: ${pn} · PDV: ${dn}${extra}`;
     if (pn) return ` · Planta: ${pn}${extra}`;
@@ -330,9 +373,76 @@
     await cargarAlmacenes(plantaId, restoreAlmacen);
   }
 
+  async function cargarAutotanques(plantaId, restoreAutotanque) {
+    if (!selAutotanque || !sidebarAutotanqueWrap) return;
+    if (!restoreAutotanque) sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+    try {
+      const data = await fetchJson(
+        "/api/consola/pdv-autotanque?planta_id=" + encodeURIComponent(plantaId),
+        { headers: apiHeaders() }
+      );
+      selAutotanque.innerHTML = "";
+      const list = data.autotanques || [];
+      if (!list.length) {
+        const o = document.createElement("option");
+        o.value = "";
+        o.textContent = "Sin autotanques en BD";
+        selAutotanque.appendChild(o);
+        selAutotanque.disabled = true;
+        sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+        return;
+      }
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "— Seleccione número —";
+      selAutotanque.appendChild(empty);
+      for (const row of list) {
+        const opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = row.numero;
+        selAutotanque.appendChild(opt);
+      }
+      selAutotanque.disabled = false;
+      if (restoreAutotanque) {
+        const saved = sessionStorage.getItem(STORAGE_AUTOTANQUE_ID);
+        if (saved && list.some((x) => String(x.id) === String(saved))) {
+          selAutotanque.value = saved;
+        } else {
+          sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+        }
+      }
+    } catch (e) {
+      selAutotanque.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "";
+      o.textContent = "Error cargando autotanques";
+      selAutotanque.appendChild(o);
+      selAutotanque.disabled = true;
+      sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+      if (e.status !== 401) console.warn("[consola] cargarAutotanques:", e);
+    }
+  }
+
+  async function syncAutotanqueUI(restoreAutotanque) {
+    if (!sidebarAutotanqueWrap || !selAutotanque) return;
+    if (!pdvSeleccionadoEsAutotanque()) {
+      hideAutotanqueBlock();
+      return;
+    }
+    const plantaId = selPlanta && selPlanta.value;
+    if (!plantaId) {
+      sidebarAutotanqueWrap.hidden = true;
+      return;
+    }
+    sidebarAutotanqueWrap.removeAttribute("hidden");
+    sidebarAutotanqueWrap.hidden = false;
+    await cargarAutotanques(plantaId, restoreAutotanque);
+  }
+
   async function syncPdvDetalleUI(restore) {
     await syncEstacionUI(pdvSeleccionadoEsEstacion() ? restore : false);
     await syncAlmacenUI(pdvSeleccionadoEsAlmacen() ? restore : false);
+    await syncAutotanqueUI(pdvSeleccionadoEsAutotanque() ? restore : false);
   }
 
   async function cargarPdv(plantaId, restorePdv) {
@@ -357,6 +467,7 @@
         sessionStorage.removeItem(STORAGE_PDV_ID);
         hideEstacionBlock();
         hideAlmacenBlock();
+        hideAutotanqueBlock();
         return;
       }
       const empty = document.createElement("option");
@@ -392,6 +503,7 @@
       sessionStorage.removeItem(STORAGE_PDV_ID);
       hideEstacionBlock();
       hideAlmacenBlock();
+      hideAutotanqueBlock();
       if (e.status !== 401) console.warn("[consola] cargarPdv:", e);
     }
   }
@@ -1085,6 +1197,16 @@
     });
   }
 
+  if (selAutotanque) {
+    selAutotanque.addEventListener("change", () => {
+      if (selAutotanque.value) {
+        sessionStorage.setItem(STORAGE_AUTOTANQUE_ID, selAutotanque.value);
+      } else {
+        sessionStorage.removeItem(STORAGE_AUTOTANQUE_ID);
+      }
+    });
+  }
+
   btnInicioRuta.addEventListener("click", guardarInicioRuta);
 
   if (selTipoOrigen) {
@@ -1259,5 +1381,6 @@
     resetPdvSelect();
     if (sidebarEstacionWrap) sidebarEstacionWrap.hidden = true;
     if (sidebarAlmacenWrap) sidebarAlmacenWrap.hidden = true;
+    if (sidebarAutotanqueWrap) sidebarAutotanqueWrap.hidden = true;
   }
 })();
