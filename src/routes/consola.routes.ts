@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireApiKey } from "../middleware/requireApiKey";
 import {
   getUnidadesConsola,
+  getPlantasConsola,
+  getPdvConsola,
   getTelemetriaConsola,
   getEventosConsola,
   getPedidosConsola,
@@ -16,6 +18,8 @@ export const consolaRoutes = Router();
 consolaRoutes.use(requireApiKey);
 
 consolaRoutes.get("/unidades", getUnidadesConsola);
+consolaRoutes.get("/plantas", getPlantasConsola);
+consolaRoutes.get("/pdv", getPdvConsola);
 consolaRoutes.get("/telemetria/:clave", getTelemetriaConsola);
 consolaRoutes.get("/eventos", getEventosConsola);
 consolaRoutes.get("/pedidos", getPedidosConsola);

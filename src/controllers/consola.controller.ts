@@ -13,6 +13,7 @@ import {
   cancelarPedido,
 } from "../services/pedidos.service";
 import { sendWhatsAppTextMessage } from "../services/whatsapp.service";
+import { listPlantas, listPdvPorPlanta } from "../services/plantasPdv.service";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -95,6 +96,56 @@ export async function getUnidadesConsola(_req: Request, res: Response) {
   } catch (error) {
     console.error("[consola] getUnidades:", error);
     return res.status(500).json({ ok: false, error: "Error listando unidades" });
+  }
+}
+
+export async function getPlantasConsola(_req: Request, res: Response) {
+  try {
+    const plantas = await listPlantas();
+    return res.json({ ok: true, plantas });
+  } catch (error) {
+    console.error("[consola] getPlantas:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existen las tablas ID-PLANTAS / ID-PDV en PostgreSQL.",
+        hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/011_id_plantas_id_pdv.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando plantas" });
+  }
+}
+
+export async function getPdvConsola(req: Request, res: Response) {
+  try {
+    const plantaIdRaw = req.query.planta_id;
+    const plantaId =
+      typeof plantaIdRaw === "string"
+        ? plantaIdRaw.trim()
+        : plantaIdRaw != null
+          ? String(plantaIdRaw).trim()
+          : "";
+    if (!plantaId || !/^\d+$/.test(plantaId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query planta_id requerido (id numérico de la planta)",
+      });
+    }
+
+    const pdvs = await listPdvPorPlanta(plantaId);
+    return res.json({ ok: true, pdvs });
+  } catch (error) {
+    console.error("[consola] getPdv:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existen las tablas ID-PLANTAS / ID-PDV en PostgreSQL.",
+        hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/011_id_plantas_id_pdv.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error listando PDV" });
   }
 }
 

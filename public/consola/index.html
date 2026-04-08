@@ -20,6 +20,22 @@
   </head>
   <body>
     <div class="app">
+      <div class="app-layout">
+        <aside class="sidebar" aria-label="Planta y PDV">
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPlanta">Planta</label>
+            <select id="selPlanta" aria-label="Seleccionar planta">
+              <option value="">— Cargando… —</option>
+            </select>
+          </div>
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPdv">PDV</label>
+            <select id="selPdv" aria-label="Seleccionar PDV" disabled>
+              <option value="">— Elija planta —</option>
+            </select>
+          </div>
+        </aside>
+        <div class="main-column">
       <header class="header">
         <div class="header-top">
           <div class="header-titles">
@@ -180,6 +196,8 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="

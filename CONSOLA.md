@@ -28,6 +28,28 @@ En **Render**: conecta con la URL interna de Postgres o desde tu PC apuntando a 
 
 Header en todas las peticiones de consola: `x-api-key: <clave>`.
 
+## Cliente MiAppGTK (VB / .NET en la Raspberry)
+
+El proyecto **MiAppGTK** puede enviar telemetría directamente a este backend si defines (en la Pi, antes de `dotnet run`):
+
+| Variable | Descripción |
+|----------|-------------|
+| `GASUBER_API_KEY` | Misma clave que **`API_KEY_RASPBERRY`** en Render (header `x-api-key`). |
+| `GASUBER_UNIDAD_ID` | Clave de la unidad, **exactamente** como en BD / desplegable de la consola (ej. `ATQ-01`). |
+| `GASUBER_API_BASE` | Opcional. Por defecto `https://gasuber-backend-api.onrender.com` (sin barra final). |
+| `GASUBER_PUSH_MS` | Opcional. Intervalo entre envíos en ms (múltiplo práctico de 500; por defecto ~3000 ms). |
+
+Ejemplo:
+
+```bash
+export GASUBER_API_KEY='tu_clave_secreta'
+export GASUBER_UNIDAD_ID='ATQ-01'
+export GPS_PORT=/dev/ttyUSB1
+cd ~/MiAppGTK && dotnet run
+```
+
+Si `unidad_id` no existe en `unidades`, el servidor responde 400 (revisa el desplegable **Unidad** en [la consola](https://gasuber-backend-api.onrender.com/consola/)).
+
 ## API `/api/gps` (Raspberry)
 
 - **GET `/api/gps/health`** — sin API key; responde `{ ok: true, service: "gps", time: "..." }`. Úsalo desde la Pi para comprobar DNS/HTTPS antes de depurar el POST.

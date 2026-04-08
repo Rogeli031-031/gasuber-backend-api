@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUnidadesConsola = getUnidadesConsola;
+exports.getPlantasConsola = getPlantasConsola;
+exports.getPdvConsola = getPdvConsola;
 exports.getTelemetriaConsola = getTelemetriaConsola;
 exports.getEventosConsola = getEventosConsola;
 exports.postInicioRuta = postInicioRuta;
@@ -17,6 +19,7 @@ const telemetria_service_1 = require("../services/telemetria.service");
 const eventosInicioRuta_service_1 = require("../services/eventosInicioRuta.service");
 const pedidos_service_1 = require("../services/pedidos.service");
 const whatsapp_service_1 = require("../services/whatsapp.service");
+const plantasPdv_service_1 = require("../services/plantasPdv.service");
 function toFiniteNumber(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;
@@ -97,6 +100,54 @@ async function getUnidadesConsola(_req, res) {
     catch (error) {
         console.error("[consola] getUnidades:", error);
         return res.status(500).json({ ok: false, error: "Error listando unidades" });
+    }
+}
+async function getPlantasConsola(_req, res) {
+    try {
+        const plantas = await (0, plantasPdv_service_1.listPlantas)();
+        return res.json({ ok: true, plantas });
+    }
+    catch (error) {
+        console.error("[consola] getPlantas:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existen las tablas ID-PLANTAS / ID-PDV en PostgreSQL.",
+                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/011_id_plantas_id_pdv.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error listando plantas" });
+    }
+}
+async function getPdvConsola(req, res) {
+    try {
+        const plantaIdRaw = req.query.planta_id;
+        const plantaId = typeof plantaIdRaw === "string"
+            ? plantaIdRaw.trim()
+            : plantaIdRaw != null
+                ? String(plantaIdRaw).trim()
+                : "";
+        if (!plantaId || !/^\d+$/.test(plantaId)) {
+            return res.status(400).json({
+                ok: false,
+                error: "query planta_id requerido (id numérico de la planta)",
+            });
+        }
+        const pdvs = await (0, plantasPdv_service_1.listPdvPorPlanta)(plantaId);
+        return res.json({ ok: true, pdvs });
+    }
+    catch (error) {
+        console.error("[consola] getPdv:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existen las tablas ID-PLANTAS / ID-PDV en PostgreSQL.",
+                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/011_id_plantas_id_pdv.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error listando PDV" });
     }
 }
 async function getTelemetriaConsola(req, res) {
