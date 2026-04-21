@@ -54,51 +54,54 @@ async function listAlmacenesPorPlanta(plantaId) {
  * Se usa para la tabla-resumen de la consola web.
  */
 async function listActivosConTarjeta() {
-    const { rows } = await db_1.db.query(`SELECT 'estacion'::text                AS tipo,
-            p.id::text                      AS planta_id,
-            p."NOMBRE"                      AS planta_nombre,
-            e.id::text                      AS activo_id,
-            e."NOMBRE"                      AS activo_nombre,
-            NULL::text                      AS placas,
-            e."CAPACIDAD"::text             AS capacidad,
-            t.id::text                      AS tarjeta_id,
-            t."NOMBRE"                      AS tarjeta_nombre
-       FROM "ID-PDV-ESTACION" e
-       JOIN "ID-PLANTAS"  p ON p.id = e.planta_id
-       LEFT JOIN "ID-TARJETA" t ON t.id = e.tarjeta_id
-     UNION ALL
-     SELECT 'almacen'::text,
-            p.id::text,
-            p."NOMBRE",
-            a.id::text,
-            a."NOMBRE",
-            NULL::text,
-            a."CAPACIDAD"::text,
-            t.id::text,
-            t."NOMBRE"
-       FROM "ID-PDV-ALMACEN" a
-       JOIN "ID-PLANTAS"  p ON p.id = a.planta_id
-       LEFT JOIN "ID-TARJETA" t ON t.id = a.tarjeta_id
-     UNION ALL
-     SELECT 'autotanque'::text,
-            p.id::text,
-            p."NOMBRE",
-            atq.id::text,
-            atq."NUMERO"::text,
-            atq."PLACAS"::text,
-            atq."CAPACIDAD"::text,
-            t.id::text,
-            t."NOMBRE"
-       FROM "ID-PDV-AUTOTANQUE" atq
-       JOIN "ID-PLANTAS"  p ON p.id = atq.planta_id
-       LEFT JOIN "ID-TARJETA" t ON t.id = atq.tarjeta_id
-     ORDER BY planta_nombre ASC,
-              CASE tipo
-                WHEN 'autotanque' THEN 1
-                WHEN 'estacion'   THEN 2
-                WHEN 'almacen'    THEN 3
-              END,
-              activo_nombre ASC`);
+    const { rows } = await db_1.db.query(`SELECT *
+       FROM (
+         SELECT 'estacion'::text                AS tipo,
+                p.id::text                      AS planta_id,
+                p."NOMBRE"                      AS planta_nombre,
+                e.id::text                      AS activo_id,
+                e."NOMBRE"                      AS activo_nombre,
+                NULL::text                      AS placas,
+                e."CAPACIDAD"::text             AS capacidad,
+                t.id::text                      AS tarjeta_id,
+                t."NOMBRE"                      AS tarjeta_nombre
+           FROM "ID-PDV-ESTACION" e
+           JOIN "ID-PLANTAS"  p ON p.id = e.planta_id
+           LEFT JOIN "ID-TARJETA" t ON t.id = e.tarjeta_id
+         UNION ALL
+         SELECT 'almacen'::text,
+                p.id::text,
+                p."NOMBRE",
+                a.id::text,
+                a."NOMBRE",
+                NULL::text,
+                a."CAPACIDAD"::text,
+                t.id::text,
+                t."NOMBRE"
+           FROM "ID-PDV-ALMACEN" a
+           JOIN "ID-PLANTAS"  p ON p.id = a.planta_id
+           LEFT JOIN "ID-TARJETA" t ON t.id = a.tarjeta_id
+         UNION ALL
+         SELECT 'autotanque'::text,
+                p.id::text,
+                p."NOMBRE",
+                atq.id::text,
+                atq."NUMERO"::text,
+                atq."PLACAS"::text,
+                atq."CAPACIDAD"::text,
+                t.id::text,
+                t."NOMBRE"
+           FROM "ID-PDV-AUTOTANQUE" atq
+           JOIN "ID-PLANTAS"  p ON p.id = atq.planta_id
+           LEFT JOIN "ID-TARJETA" t ON t.id = atq.tarjeta_id
+       ) AS u
+      ORDER BY u.planta_nombre ASC,
+               CASE u.tipo
+                 WHEN 'autotanque' THEN 1
+                 WHEN 'estacion'   THEN 2
+                 WHEN 'almacen'    THEN 3
+               END,
+               u.activo_nombre ASC`);
     return rows;
 }
 async function listAutotanquesPorPlanta(plantaId) {
