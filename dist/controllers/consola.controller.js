@@ -264,11 +264,28 @@ async function getActivosTarjetasConsola(_req, res) {
             return res.status(500).json({
                 ok: false,
                 error: "Falta alguna tabla de PDV/tarjetas en PostgreSQL (ID-PDV-ESTACION / ID-PDV-ALMACEN / ID-PDV-AUTOTANQUE / ID-TARJETA / ID-PLANTAS).",
+                hint: "Corre: node scripts/migrate.cjs --file=sql/020_id_tarjeta_rpi.sql",
+                pg_detail: pg.message,
             });
         }
-        return res
-            .status(500)
-            .json({ ok: false, error: "Error listando activos con tarjeta" });
+        if (pg.code === "42703") {
+            return res.status(500).json({
+                ok: false,
+                error: "Falta la columna 'tarjeta_id' en alguna tabla de PDV (ID-PDV-ESTACION / ID-PDV-ALMACEN / ID-PDV-AUTOTANQUE). La migración 020 no se corrió completa.",
+                hint: "Corre: node scripts/migrate.cjs --file=sql/020_id_tarjeta_rpi.sql",
+                pg_detail: pg.message,
+            });
+        }
+        return res.status(500).json({
+            ok: false,
+            error: "Error listando activos con tarjeta",
+            pg_code: pg.code,
+            pg_message: pg.message,
+            pg_detail: pg.detail,
+            pg_hint: pg.hint,
+            pg_table: pg.table,
+            pg_column: pg.column,
+        });
     }
 }
 async function getTarjetasConsola(_req, res) {

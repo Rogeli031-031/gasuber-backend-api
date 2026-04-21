@@ -1958,6 +1958,8 @@
     } catch (e) {
       let msg = e.message || String(e);
       if (e.data?.hint) msg += " — " + e.data.hint;
+      if (e.data?.pg_message) msg += " [pg: " + e.data.pg_message + "]";
+      else if (e.data?.pg_detail) msg += " [pg: " + e.data.pg_detail + "]";
       tarjetasTbody.innerHTML =
         '<tr><td colspan="5" class="tarjetas-empty">No se pudo cargar.</td></tr>';
       tarjetasSetMsg(msg, "err");
