@@ -19,6 +19,7 @@ import {
   listEstacionesPorPlanta,
   listAlmacenesPorPlanta,
   listAutotanquesPorPlanta,
+  listActivosConTarjeta,
 } from "../services/plantasPdv.service";
 import {
   listPuestosTripulacion,
@@ -259,6 +260,26 @@ export async function getPdvAutotanqueConsola(req: Request, res: Response) {
       });
     }
     return res.status(500).json({ ok: false, error: "Error listando autotanques" });
+  }
+}
+
+export async function getActivosTarjetasConsola(_req: Request, res: Response) {
+  try {
+    const activos = await listActivosConTarjeta();
+    return res.json({ ok: true, activos });
+  } catch (error) {
+    console.error("[consola] getActivosTarjetas:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Falta alguna tabla de PDV/tarjetas en PostgreSQL (ID-PDV-ESTACION / ID-PDV-ALMACEN / ID-PDV-AUTOTANQUE / ID-TARJETA / ID-PLANTAS).",
+      });
+    }
+    return res
+      .status(500)
+      .json({ ok: false, error: "Error listando activos con tarjeta" });
   }
 }
 

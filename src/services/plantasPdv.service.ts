@@ -124,6 +124,74 @@ export async function listAlmacenesPorPlanta(
   return rows;
 }
 
+export type ActivoTarjetaRow = {
+  tipo: "estacion" | "almacen" | "autotanque";
+  planta_id: string;
+  planta_nombre: string;
+  activo_id: string;
+  activo_nombre: string;
+  placas: string | null;
+  capacidad: string | null;
+  tarjeta_id: string | null;
+  tarjeta_nombre: string | null;
+};
+
+/**
+ * Devuelve todos los PDVs (estaciones, almacenes, autotanques) de todas las plantas,
+ * junto con la tarjeta RPI que tienen actualmente asignada (o null si no hay).
+ * Se usa para la tabla-resumen de la consola web.
+ */
+export async function listActivosConTarjeta(): Promise<ActivoTarjetaRow[]> {
+  const { rows } = await db.query<ActivoTarjetaRow>(
+    `SELECT 'estacion'::text                AS tipo,
+            p.id::text                      AS planta_id,
+            p."NOMBRE"                      AS planta_nombre,
+            e.id::text                      AS activo_id,
+            e."NOMBRE"                      AS activo_nombre,
+            NULL::text                      AS placas,
+            e."CAPACIDAD"::text             AS capacidad,
+            t.id::text                      AS tarjeta_id,
+            t."NOMBRE"                      AS tarjeta_nombre
+       FROM "ID-PDV-ESTACION" e
+       JOIN "ID-PLANTAS"  p ON p.id = e.planta_id
+       LEFT JOIN "ID-TARJETA" t ON t.id = e.tarjeta_id
+     UNION ALL
+     SELECT 'almacen'::text,
+            p.id::text,
+            p."NOMBRE",
+            a.id::text,
+            a."NOMBRE",
+            NULL::text,
+            a."CAPACIDAD"::text,
+            t.id::text,
+            t."NOMBRE"
+       FROM "ID-PDV-ALMACEN" a
+       JOIN "ID-PLANTAS"  p ON p.id = a.planta_id
+       LEFT JOIN "ID-TARJETA" t ON t.id = a.tarjeta_id
+     UNION ALL
+     SELECT 'autotanque'::text,
+            p.id::text,
+            p."NOMBRE",
+            atq.id::text,
+            atq."NUMERO"::text,
+            atq."PLACAS"::text,
+            atq."CAPACIDAD"::text,
+            t.id::text,
+            t."NOMBRE"
+       FROM "ID-PDV-AUTOTANQUE" atq
+       JOIN "ID-PLANTAS"  p ON p.id = atq.planta_id
+       LEFT JOIN "ID-TARJETA" t ON t.id = atq.tarjeta_id
+     ORDER BY planta_nombre ASC,
+              CASE tipo
+                WHEN 'autotanque' THEN 1
+                WHEN 'estacion'   THEN 2
+                WHEN 'almacen'    THEN 3
+              END,
+              activo_nombre ASC`
+  );
+  return rows;
+}
+
 export async function listAutotanquesPorPlanta(
   plantaId: string
 ): Promise<AutotanqueRow[]> {

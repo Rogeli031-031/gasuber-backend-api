@@ -156,6 +156,9 @@
         <button type="button" id="btnPedido" class="btn secondary" disabled>
           Pedido
         </button>
+        <button type="button" id="btnVerTarjetas" class="btn secondary">
+          Tarjetas asignadas
+        </button>
         <div class="status" id="statusMsg"></div>
       </section>
 
@@ -180,6 +183,37 @@
         <h2>Solicitudes y cancelados <span class="hint">(ordenadas por litros, de alto a bajo)</span></h2>
         <div id="pedidoStack" class="event-stack"></div>
       </section>
+
+      <div id="tarjetasModal" class="modal-overlay" hidden>
+        <div class="modal tarjetas-modal" role="dialog" aria-modal="true" aria-labelledby="tarjetasModalTitle">
+          <h2 id="tarjetasModalTitle">Tarjetas RPI asignadas por PDV</h2>
+          <p class="hint" style="margin: 0 0 0.6rem;">
+            Se lista cada PDV (autotanques, estaciones, almacenes) de todas las plantas con la tarjeta RPI que
+            tiene asignada en este momento. "Sin tarjeta" = el PDV no está entregando telemetría.
+          </p>
+          <div id="tarjetasStatusMsg" class="status err" style="min-height: 1.2rem;"></div>
+          <div class="tarjetas-table-wrap">
+            <table class="tarjetas-table" id="tarjetasTable" aria-live="polite">
+              <thead>
+                <tr>
+                  <th>Planta</th>
+                  <th>Tipo</th>
+                  <th>PDV / número</th>
+                  <th>Placas</th>
+                  <th>Tarjeta RPI</th>
+                </tr>
+              </thead>
+              <tbody id="tarjetasTbody">
+                <tr><td colspan="5" class="tarjetas-empty">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="btnTarjetasRecargar" class="btn secondary">Actualizar</button>
+            <button type="button" id="btnTarjetasCerrar" class="btn primary">Cerrar</button>
+          </div>
+        </div>
+      </div>
 
       <div id="pedidoModal" class="modal-overlay" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pedidoModalTitle">
@@ -255,6 +289,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=autotanque-consola-1"></script>
+    <script src="./app.js?v=autotanque-consola-2-tarjetas"></script>
   </body>
 </html>

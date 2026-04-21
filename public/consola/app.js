@@ -1879,4 +1879,123 @@
     if (sidebarAutotanqueWrap) sidebarAutotanqueWrap.hidden = true;
     if (sidebarTripulacionWrap) sidebarTripulacionWrap.hidden = true;
   }
+
+  // ------------------------------------------------------------------
+  // Modal "Tarjetas asignadas por PDV" (botón de la barra de acciones)
+  // ------------------------------------------------------------------
+  const btnVerTarjetas = document.getElementById("btnVerTarjetas");
+  const tarjetasModal = document.getElementById("tarjetasModal");
+  const btnTarjetasCerrar = document.getElementById("btnTarjetasCerrar");
+  const btnTarjetasRecargar = document.getElementById("btnTarjetasRecargar");
+  const tarjetasTbody = document.getElementById("tarjetasTbody");
+  const tarjetasStatusMsg = document.getElementById("tarjetasStatusMsg");
+
+  if (tarjetasModal) tarjetasModal.hidden = true;
+
+  function tarjetasSetMsg(text, kind) {
+    if (!tarjetasStatusMsg) return;
+    tarjetasStatusMsg.textContent = text || "";
+    tarjetasStatusMsg.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function tipoLabel(tipo) {
+    if (tipo === "autotanque") return "Autotanque";
+    if (tipo === "estacion") return "Estación";
+    if (tipo === "almacen") return "Almacén";
+    return tipo || "—";
+  }
+
+  function renderTarjetasTabla(activos) {
+    if (!tarjetasTbody) return;
+    if (!Array.isArray(activos) || activos.length === 0) {
+      tarjetasTbody.innerHTML =
+        '<tr><td colspan="5" class="tarjetas-empty">No hay PDVs registrados.</td></tr>';
+      return;
+    }
+    const rows = activos
+      .map((a) => {
+        const planta = (a.planta_nombre || "—").toString();
+        const tipo = tipoLabel(a.tipo);
+        const nombre = a.tipo === "autotanque"
+          ? "T-" + (a.activo_nombre || "").toString()
+          : (a.activo_nombre || "—").toString();
+        const placas = (a.placas && a.placas.trim()) ? a.placas : "—";
+        const tarjetaTxt = a.tarjeta_nombre
+          ? a.tarjeta_nombre
+          : '<span class="tarjeta-vacia">Sin tarjeta</span>';
+        const esc = (s) =>
+          s
+            .toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        return (
+          "<tr>" +
+          "<td>" + esc(planta) + "</td>" +
+          "<td>" + esc(tipo) + "</td>" +
+          "<td>" + esc(nombre) + "</td>" +
+          "<td>" + esc(placas) + "</td>" +
+          "<td>" +
+            (a.tarjeta_nombre ? esc(a.tarjeta_nombre) : tarjetaTxt) +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+    tarjetasTbody.innerHTML = rows;
+  }
+
+  async function cargarTarjetasActivos() {
+    if (!tarjetasTbody) return;
+    tarjetasTbody.innerHTML =
+      '<tr><td colspan="5" class="tarjetas-empty">Cargando…</td></tr>';
+    tarjetasSetMsg("", "");
+    try {
+      const data = await fetchJson("/api/consola/activos-tarjetas", {
+        headers: apiHeaders(),
+      });
+      renderTarjetasTabla(data.activos || []);
+    } catch (e) {
+      let msg = e.message || String(e);
+      if (e.data?.hint) msg += " — " + e.data.hint;
+      tarjetasTbody.innerHTML =
+        '<tr><td colspan="5" class="tarjetas-empty">No se pudo cargar.</td></tr>';
+      tarjetasSetMsg(msg, "err");
+    }
+  }
+
+  function abrirTarjetasModal() {
+    if (!tarjetasModal) return;
+    if (!inpApiKey.value.trim()) {
+      setStatus("Introduce la API key y pulsa «Guardar clave» antes de ver las tarjetas.", "err");
+      return;
+    }
+    tarjetasModal.hidden = false;
+    cargarTarjetasActivos();
+  }
+
+  function cerrarTarjetasModal() {
+    if (!tarjetasModal) return;
+    tarjetasModal.hidden = true;
+  }
+
+  if (btnVerTarjetas) {
+    btnVerTarjetas.addEventListener("click", abrirTarjetasModal);
+  }
+  if (btnTarjetasCerrar) {
+    btnTarjetasCerrar.addEventListener("click", cerrarTarjetasModal);
+  }
+  if (btnTarjetasRecargar) {
+    btnTarjetasRecargar.addEventListener("click", cargarTarjetasActivos);
+  }
+  if (tarjetasModal) {
+    tarjetasModal.addEventListener("click", (ev) => {
+      if (ev.target === tarjetasModal) cerrarTarjetasModal();
+    });
+  }
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && tarjetasModal && !tarjetasModal.hidden) {
+      cerrarTarjetasModal();
+    }
+  });
 })();
