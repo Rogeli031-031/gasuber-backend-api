@@ -9,6 +9,7 @@ exports.getPdvConsola = getPdvConsola;
 exports.getPdvEstacionConsola = getPdvEstacionConsola;
 exports.getPdvAlmacenConsola = getPdvAlmacenConsola;
 exports.getPdvAutotanqueConsola = getPdvAutotanqueConsola;
+exports.getActivosTarjetasConsola = getActivosTarjetasConsola;
 exports.getTarjetasConsola = getTarjetasConsola;
 exports.patchActivoTarjetaConsola = patchActivoTarjetaConsola;
 exports.getTripulacionPuestosConsola = getTripulacionPuestosConsola;
@@ -249,6 +250,25 @@ async function getPdvAutotanqueConsola(req, res) {
             });
         }
         return res.status(500).json({ ok: false, error: "Error listando autotanques" });
+    }
+}
+async function getActivosTarjetasConsola(_req, res) {
+    try {
+        const activos = await (0, plantasPdv_service_1.listActivosConTarjeta)();
+        return res.json({ ok: true, activos });
+    }
+    catch (error) {
+        console.error("[consola] getActivosTarjetas:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "Falta alguna tabla de PDV/tarjetas en PostgreSQL (ID-PDV-ESTACION / ID-PDV-ALMACEN / ID-PDV-AUTOTANQUE / ID-TARJETA / ID-PLANTAS).",
+            });
+        }
+        return res
+            .status(500)
+            .json({ ok: false, error: "Error listando activos con tarjeta" });
     }
 }
 async function getTarjetasConsola(_req, res) {
