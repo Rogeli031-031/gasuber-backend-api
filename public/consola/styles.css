@@ -267,6 +267,219 @@ body {
   height: auto;
 }
 
+/* ------------------------------------------------------------
+   Taller (Kanban)
+   ------------------------------------------------------------ */
+.taller-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.75rem;
+}
+
+.taller-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.taller-header-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.taller-titlewrap h1 {
+  margin: 0 0 0.35rem;
+  font-family: Orbitron, sans-serif;
+  color: var(--cyan);
+  text-shadow: var(--glow-cyan);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.taller-header-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.taller-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: min(360px, 100%);
+}
+
+.taller-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 1fr);
+  gap: 0.85rem;
+  overflow: auto;
+  padding-bottom: 0.5rem;
+}
+
+.kanban-col {
+  background: rgba(18, 24, 32, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kanban-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(21, 28, 40, 0.9) 0%, rgba(13, 18, 25, 0.75) 100%);
+}
+
+.kanban-col-head h2 {
+  margin: 0;
+  font-family: Orbitron, sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  text-shadow: var(--glow-cyan);
+}
+
+.kanban-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(57, 197, 207, 0.28);
+  color: var(--text);
+  font-size: 0.75rem;
+  background: rgba(57, 197, 207, 0.06);
+}
+
+.kanban-drop {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  flex: 1 1 auto;
+}
+
+.kanban-drop.drag-over {
+  background: rgba(57, 197, 207, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(57, 197, 207, 0.2);
+}
+
+.kanban-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.kanban-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(57, 197, 207, 0.22);
+  box-shadow: 0 0 0 1px rgba(57, 197, 207, 0.12), 0 16px 34px rgba(10, 14, 20, 0.55);
+}
+
+.kanban-card.dragging {
+  opacity: 0.65;
+  cursor: grabbing;
+}
+
+.kanban-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.kanban-folio {
+  font-family: Orbitron, sans-serif;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.kanban-ts {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.kanban-main {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.kanban-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 0.5rem;
+}
+
+.kanban-row .k {
+  color: var(--muted);
+}
+
+.kanban-row .v {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.kanban-mini {
+  border: 1px solid var(--border);
+  background: #0d1117;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  font-family: Orbitron, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 0.08s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.kanban-mini:hover {
+  transform: translateY(-1px);
+  border-color: rgba(57, 197, 207, 0.45);
+  box-shadow: 0 0 0 1px rgba(57, 197, 207, 0.12), 0 10px 22px rgba(10, 14, 20, 0.55);
+}
+
+.kanban-mini:active {
+  transform: translateY(0);
+}
+
 .app {
   max-width: 1280px;
   margin: 0 auto;

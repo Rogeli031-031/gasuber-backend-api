@@ -13,24 +13,91 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="simple-page">
-      <header class="simple-header">
-        <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
-        <div class="simple-titlewrap">
-          <h1>Taller</h1>
-          <p class="sub">Placeholder: mantenimiento, checklist, incidencias y control de reparaciones.</p>
+    <main class="taller-shell">
+      <header class="taller-header">
+        <div class="taller-header-left">
+          <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
+          <div class="taller-titlewrap">
+            <h1>Taller</h1>
+            <p class="sub">Kanban de órdenes de trabajo por etapa.</p>
+          </div>
+        </div>
+
+        <div class="taller-header-right">
+          <label class="taller-search">
+            Planta
+            <select id="selPlanta" aria-label="Filtrar por planta">
+              <option value="__ALL__">Todas</option>
+            </select>
+          </label>
+          <label class="taller-search">
+            Buscar
+            <input id="inpBuscar" type="text" autocomplete="off" placeholder="Cliente, placa o folio…" />
+          </label>
+          <button type="button" id="btnDemo" class="btn secondary">Recargar demo</button>
         </div>
       </header>
-      <section class="simple-content">
-        <div class="placeholder-panel">
-          <h2>En construcción</h2>
-          <p>
-            Próximamente: registro de servicios, fallas, refacciones y fechas. Este módulo se integrará al menú sin
-            afectar telemetría, pedidos ni GPS.
-          </p>
+
+      <section class="taller-board" aria-label="Kanban de taller">
+        <div class="kanban-col" data-col="recepcion">
+          <div class="kanban-col-head">
+            <h2>Recepción</h2>
+            <span class="kanban-count" data-count="recepcion">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="recepcion" aria-label="Recepción (drop)"></div>
+        </div>
+
+        <div class="kanban-col" data-col="diagnostico">
+          <div class="kanban-col-head">
+            <h2>Diagnóstico</h2>
+            <span class="kanban-count" data-count="diagnostico">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="diagnostico" aria-label="Diagnóstico (drop)"></div>
+        </div>
+
+        <div class="kanban-col" data-col="repuestos">
+          <div class="kanban-col-head">
+            <h2>Repuestos</h2>
+            <span class="kanban-count" data-count="repuestos">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="repuestos" aria-label="Repuestos (drop)"></div>
+        </div>
+
+        <div class="kanban-col" data-col="aprobacion">
+          <div class="kanban-col-head">
+            <h2>Aprobación</h2>
+            <span class="kanban-count" data-count="aprobacion">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="aprobacion" aria-label="Aprobación (drop)"></div>
+        </div>
+
+        <div class="kanban-col" data-col="reparacion">
+          <div class="kanban-col-head">
+            <h2>Reparación</h2>
+            <span class="kanban-count" data-count="reparacion">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="reparacion" aria-label="Reparación (drop)"></div>
+        </div>
+
+        <div class="kanban-col" data-col="control">
+          <div class="kanban-col-head">
+            <h2>Control</h2>
+            <span class="kanban-count" data-count="control">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="control" aria-label="Control (drop)"></div>
+        </div>
+
+        <div class="kanban-col" data-col="entrega">
+          <div class="kanban-col-head">
+            <h2>Entrega</h2>
+            <span class="kanban-count" data-count="entrega">0</span>
+          </div>
+          <div class="kanban-drop" data-drop="entrega" aria-label="Entrega (drop)"></div>
         </div>
       </section>
     </main>
+
+    <script src="./taller.js?v=taller-1"></script>
   </body>
 </html>
 
