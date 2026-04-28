@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gas Uber — Telemetría</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="page-topbar">
+        <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
+      </div>
+      <div class="app-layout">
+        <aside class="sidebar" aria-label="Planta, PDV, estación, almacén y autotanque">
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPlanta">Planta</label>
+            <select id="selPlanta" aria-label="Seleccionar planta">
+              <option value="">— Cargando… —</option>
+            </select>
+          </div>
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPdv">PDV</label>
+            <select id="selPdv" aria-label="Seleccionar PDV" disabled>
+              <option value="">— Elija planta —</option>
+            </select>
+          </div>
+          <div class="sidebar-block" id="sidebarEstacionWrap" hidden>
+            <label class="sidebar-label" for="selEstacion">Estación</label>
+            <select id="selEstacion" aria-label="Seleccionar estación (PDV Estación)" disabled>
+              <option value="">— Elija PDV Estación —</option>
+            </select>
+          </div>
+          <div class="sidebar-block" id="sidebarAlmacenWrap" hidden>
+            <label class="sidebar-label" for="selAlmacen">Almacén</label>
+            <select id="selAlmacen" aria-label="Seleccionar almacén (PDV Almacén)" disabled>
+              <option value="">— Elija PDV Almacén —</option>
+            </select>
+          </div>
+          <div class="sidebar-block" id="sidebarAutotanqueWrap" hidden>
+            <label class="sidebar-label" for="selAutotanque">Autotanque</label>
+            <select id="selAutotanque" aria-label="Seleccionar autotanque (PDV Autotanque)" disabled>
+              <option value="">— Elija PDV Autotanque —</option>
+            </select>
+          </div>
+          <div class="sidebar-block sidebar-tarjeta" id="sidebarTarjetaWrap" hidden>
+            <span class="sidebar-label">ID tarjeta (Raspberry)</span>
+            <p class="tripulacion-hint">
+              Asigna RPI-001…040 al activo seleccionado (estación, almacén o autotanque). Vacío = sin asignar.
+            </p>
+            <label class="sidebar-sublabel" for="selTarjeta">Tarjeta</label>
+            <select id="selTarjeta" aria-label="Tarjeta Raspberry RPI" disabled>
+              <option value="">— —</option>
+            </select>
+            <button type="button" id="btnGuardarTarjeta" class="btn secondary tripulacion-btn" disabled>
+              Guardar tarjeta
+            </button>
+          </div>
+          <div class="sidebar-block sidebar-tripulacion" id="sidebarTripulacionWrap" hidden>
+            <span class="sidebar-label">Tripulación</span>
+            <p class="tripulacion-hint">
+              Un chofer y un ayudante por autotanque. Cada empleado solo en un número.
+            </p>
+            <label class="sidebar-sublabel" for="selTripulacionChofer">Chofer</label>
+            <select id="selTripulacionChofer" aria-label="Chofer (catálogo planta)" disabled>
+              <option value="">— Elija autotanque primero —</option>
+            </select>
+            <label class="sidebar-sublabel" for="selTripulacionAyudante">Ayudante</label>
+            <select id="selTripulacionAyudante" aria-label="Ayudante (catálogo planta)" disabled>
+              <option value="">— Elija autotanque primero —</option>
+            </select>
+            <p class="tripulacion-fecha" id="tripulacionFecha" aria-live="polite"></p>
+            <button type="button" id="btnGuardarTripulacion" class="btn secondary tripulacion-btn" disabled>
+              Guardar tripulación
+            </button>
+          </div>
+        </aside>
+
+        <div class="main-column">
+          <header class="header">
+            <div class="header-top">
+              <div class="header-titles">
+                <h1>Telemetría</h1>
+                <p class="sub">
+                  Lectura en vivo cada 0,2 s (no crea historial). El botón guarda un
+                  <strong>Inicio de ruta</strong> en la base de datos.
+                </p>
+              </div>
+              <div
+                id="raspberryIndicator"
+                class="raspberry-pill"
+                role="status"
+                aria-live="polite"
+                title="Verde: la Raspberry envía datos al servidor hace poco. Rojo: datos viejos o sin envío."
+              >
+                <span class="dot" id="raspberryDot"></span>
+                <span class="raspberry-text" id="raspberryText">Raspberry: …</span>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="autotanque-activo-wrap">
+                <span class="sidebar-label">Autotanque activo</span>
+                <p id="autotanqueActivoText" class="autotanque-activo-text">
+                  — Elija Planta → PDV Autotanque → número en la barra lateral —
+                </p>
+              </div>
+              <label class="grow">
+                API key (<code>x-api-key</code>)
+                <input
+                  id="inpApiKey"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="Misma que API_KEY_CONSOLE o API_KEY_RASPBERRY"
+                />
+              </label>
+              <button type="button" id="btnGuardarKey" class="btn secondary">
+                Guardar clave
+              </button>
+            </div>
+            <p id="raspberryHint" class="raspberry-hint" hidden></p>
+          </header>
+
+          <section class="gauges" aria-label="Medidores en tiempo real">
+            <article class="gauge">
+              <h2>Carburación</h2>
+              <div class="digital" id="gCarb">—</div>
+              <div class="unit">% nivel</div>
+            </article>
+            <article class="gauge">
+              <h2>Almacén AT</h2>
+              <div class="digital" id="gAlm">—</div>
+              <div class="unit">% nivel</div>
+            </article>
+            <article class="gauge gauge-speed">
+              <h2>Velocidad</h2>
+              <div class="digital digital-speed" id="gVel">—</div>
+              <div class="unit">km/h</div>
+            </article>
+          </section>
+
+          <section class="meta-line" id="metaLine"></section>
+
+          <section class="actions">
+            <button type="button" id="btnInicioRuta" class="btn primary" disabled>
+              Guardar en base de datos (inicio de ruta)
+            </button>
+            <button type="button" id="btnPedido" class="btn secondary" disabled>
+              Pedido
+            </button>
+            <button type="button" id="btnVerTarjetas" class="btn secondary">
+              Tarjetas asignadas
+            </button>
+            <div class="status" id="statusMsg"></div>
+          </section>
+
+          <section class="map-layout" aria-label="Mapa y pedido actual">
+            <article class="panel-wrap map-panel">
+              <h2>Ruta en tiempo real <span class="hint">(OpenStreetMap + Leaflet)</span></h2>
+              <div id="mapRuta" class="map-ruta" aria-label="Mapa de ubicación actual"></div>
+              <p id="mapHint" class="hint map-hint">Esperando telemetría para ubicar la unidad.</p>
+            </article>
+            <article class="panel-wrap pedido-actual-panel">
+              <h2>Pedido actual / seleccionado</h2>
+              <div id="pedidoActualCard" class="pedido-actual-card"></div>
+            </article>
+          </section>
+
+          <section class="panel-wrap" hidden>
+            <h2>Historial de inicios de ruta <span class="hint">(más reciente arriba)</span></h2>
+            <div id="eventStack" class="event-stack"></div>
+          </section>
+
+          <section class="panel-wrap">
+            <h2>Solicitudes y cancelados <span class="hint">(ordenadas por litros, de alto a bajo)</span></h2>
+            <div id="pedidoStack" class="event-stack"></div>
+          </section>
+
+          <div id="tarjetasModal" class="modal-overlay" hidden>
+            <div class="modal tarjetas-modal" role="dialog" aria-modal="true" aria-labelledby="tarjetasModalTitle">
+              <h2 id="tarjetasModalTitle">Tarjetas RPI asignadas por PDV</h2>
+              <p class="hint" style="margin: 0 0 0.6rem;">
+                Se lista cada PDV (autotanques, estaciones, almacenes) de todas las plantas con la tarjeta RPI que
+                tiene asignada en este momento. "Sin tarjeta" = el PDV no está entregando telemetría.
+              </p>
+              <div id="tarjetasStatusMsg" class="status err" style="min-height: 1.2rem;"></div>
+              <div class="tarjetas-table-wrap">
+                <table class="tarjetas-table" id="tarjetasTable" aria-live="polite">
+                  <thead>
+                    <tr>
+                      <th>Planta</th>
+                      <th>Tipo</th>
+                      <th>PDV / número</th>
+                      <th>Placas</th>
+                      <th>Tarjeta RPI</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tarjetasTbody">
+                    <tr><td colspan="5" class="tarjetas-empty">Cargando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="modal-actions">
+                <button type="button" id="btnTarjetasRecargar" class="btn secondary">Actualizar</button>
+                <button type="button" id="btnTarjetasCerrar" class="btn primary">Cerrar</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="pedidoModal" class="modal-overlay" hidden>
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pedidoModalTitle">
+              <h2 id="pedidoModalTitle">Nueva Solicitud</h2>
+              <form id="pedidoForm">
+                <div class="form-grid">
+                  <label>
+                    Cliente
+                    <input id="inpClienteNombre" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    Teléfono
+                    <input id="inpTelefonoOrigen" type="text" autocomplete="off" />
+                  </label>
+
+                  <label>
+                    Colonia
+                    <input id="inpColonia" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    Calle
+                    <input id="inpCalle" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    CP
+                    <input id="inpCp" type="text" inputmode="numeric" autocomplete="off" placeholder="CP647489" />
+                  </label>
+                  <label>
+                    Número exterior
+                    <input id="inpNumExterior" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    Número interior
+                    <input id="inpNumInterior" type="text" autocomplete="off" placeholder="N/A" />
+                  </label>
+
+                  <label>
+                    Casa / Empresa
+                    <select id="selTipoOrigen">
+                      <option value="casa">Casa</option>
+                      <option value="empresa">Empresa</option>
+                    </select>
+                  </label>
+                  <label>
+                    Nombre de empresa
+                    <input id="inpNombreEmpresa" type="text" autocomplete="off" placeholder="N/A" />
+                  </label>
+
+                  <label style="grid-column: 1 / -1;">
+                    Litros solicitados (entero > 0)
+                    <input id="inpLitrosSolicitados" type="number" step="1" min="1" autocomplete="off" />
+                  </label>
+                </div>
+
+                <div id="pedidoStatusMsg" class="status err" style="min-height: 1.2rem; margin-top: 0.75rem;"></div>
+
+                <div class="modal-actions">
+                  <button type="button" id="btnPedidoCancelar" class="btn secondary">
+                    Cancelar
+                  </button>
+                  <button type="submit" id="btnPedidoGuardar" class="btn primary">
+                    Guardar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="./telemetria.js?v=telemetria-consola"></script>
+  </body>
+</html>
+
