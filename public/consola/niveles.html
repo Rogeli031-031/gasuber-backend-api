@@ -13,24 +13,130 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="simple-page">
-      <header class="simple-header">
+    <div class="app">
+      <div class="page-topbar">
         <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
-        <div class="simple-titlewrap">
-          <h1>Niveles</h1>
-          <p class="sub">Placeholder: aquí irá carburación, almacén, velocidad e indicadores.</p>
+      </div>
+
+      <div class="app-layout">
+        <aside class="sidebar" aria-label="Planta, PDV y autotanque">
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPlanta">Planta</label>
+            <select id="selPlanta" aria-label="Seleccionar planta">
+              <option value="">— Guarde la API key —</option>
+            </select>
+          </div>
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPdv">PDV</label>
+            <select id="selPdv" aria-label="Seleccionar PDV" disabled>
+              <option value="">— Elija planta —</option>
+            </select>
+          </div>
+          <div class="sidebar-block" id="sidebarAutotanqueWrap" hidden>
+            <label class="sidebar-label" for="selAutotanque">Autotanque</label>
+            <select id="selAutotanque" aria-label="Seleccionar autotanque (PDV Autotanque)" disabled>
+              <option value="">— Elija PDV Autotanque —</option>
+            </select>
+          </div>
+        </aside>
+
+        <div class="main-column">
+          <header class="header">
+            <div class="header-top">
+              <div class="header-titles">
+                <h1>Niveles</h1>
+                <p class="sub">
+                  Medidores en vivo y gráfica por tiempo. Seleccione Planta → PDV Autotanque → número.
+                </p>
+              </div>
+            </div>
+
+            <div class="config-row">
+              <div class="autotanque-activo-wrap">
+                <span class="sidebar-label">Autotanque activo</span>
+                <p id="autotanqueActivoText" class="autotanque-activo-text">
+                  — Elija Planta → PDV Autotanque → número —
+                </p>
+              </div>
+              <label class="grow">
+                API key (<code>x-api-key</code>)
+                <input
+                  id="inpApiKey"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="Misma que API_KEY_CONSOLE o API_KEY_RASPBERRY"
+                />
+              </label>
+              <button type="button" id="btnGuardarKey" class="btn secondary">
+                Guardar clave
+              </button>
+            </div>
+          </header>
+
+          <section class="gauges" aria-label="Medidores en tiempo real">
+            <article class="gauge">
+              <h2>Carburación</h2>
+              <div class="digital" id="gCarb">—</div>
+              <div class="unit">% nivel</div>
+            </article>
+            <article class="gauge">
+              <h2>Almacén AT</h2>
+              <div class="digital" id="gAlm">—</div>
+              <div class="unit">% nivel</div>
+            </article>
+            <article class="gauge gauge-speed">
+              <h2>Velocidad</h2>
+              <div class="digital digital-speed" id="gVel">—</div>
+              <div class="unit">km/h</div>
+            </article>
+          </section>
+
+          <section class="meta-line" id="metaLine"></section>
+
+          <section class="actions">
+            <button type="button" id="btnLimpiar" class="btn secondary" disabled>
+              Limpiar gráfica
+            </button>
+            <button type="button" id="btnPausar" class="btn secondary" disabled>
+              Pausar
+            </button>
+            <div class="status" id="statusMsg"></div>
+          </section>
+
+          <section class="panel-wrap">
+            <h2>Gráfica de sensores <span class="hint">(tiempo real)</span></h2>
+            <div class="chart-toolbar" aria-label="Opciones de gráfica">
+              <label class="chart-opt">
+                Ventana
+                <select id="selVentana">
+                  <option value="300">5 min</option>
+                  <option value="900" selected>15 min</option>
+                  <option value="3600">60 min</option>
+                </select>
+              </label>
+              <label class="chart-opt">
+                <input type="checkbox" id="chkCarb" checked />
+                Carburación
+              </label>
+              <label class="chart-opt">
+                <input type="checkbox" id="chkAlm" checked />
+                Almacén
+              </label>
+              <label class="chart-opt">
+                <input type="checkbox" id="chkVel" checked />
+                Velocidad
+              </label>
+              <span class="hint" id="chartHint"></span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chartCanvas" class="chart-canvas" width="1100" height="420"></canvas>
+            </div>
+          </section>
         </div>
-      </header>
-      <section class="simple-content">
-        <div class="placeholder-panel">
-          <h2>En construcción</h2>
-          <p>
-            Próximamente: dashboard de niveles/sensores con históricos y alertas. Por ahora, los medidores en vivo
-            están en <a href="./telemetria.html">Telemetría</a>.
-          </p>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
+
+    <script src="./niveles.js?v=niveles-1"></script>
   </body>
 </html>
 
