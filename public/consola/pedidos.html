@@ -13,24 +13,159 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="simple-page">
-      <header class="simple-header">
+    <div class="app">
+      <div class="page-topbar">
         <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
-        <div class="simple-titlewrap">
-          <h1>Pedidos</h1>
-          <p class="sub">Placeholder: aquí irá pedidos actuales/seleccionados/historial.</p>
+      </div>
+
+      <div class="app-layout">
+        <aside class="sidebar" aria-label="Planta, PDV y autotanque">
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPlanta">Planta</label>
+            <select id="selPlanta" aria-label="Seleccionar planta">
+              <option value="">— Guarde la API key —</option>
+            </select>
+          </div>
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPdv">PDV</label>
+            <select id="selPdv" aria-label="Seleccionar PDV" disabled>
+              <option value="">— Elija planta —</option>
+            </select>
+          </div>
+          <div class="sidebar-block" id="sidebarAutotanqueWrap" hidden>
+            <label class="sidebar-label" for="selAutotanque">Autotanque</label>
+            <select id="selAutotanque" aria-label="Seleccionar autotanque (PDV Autotanque)" disabled>
+              <option value="">— Elija PDV Autotanque —</option>
+            </select>
+          </div>
+        </aside>
+
+        <div class="main-column">
+          <header class="header">
+            <div class="header-top">
+              <div class="header-titles">
+                <h1>Pedidos</h1>
+                <p class="sub">
+                  Seleccione Planta → PDV Autotanque → número. Aquí se muestran los pedidos por unidad y se permite
+                  avanzar/cancelar sin afectar telemetría ni mapa.
+                </p>
+              </div>
+            </div>
+
+            <div class="config-row">
+              <div class="autotanque-activo-wrap">
+                <span class="sidebar-label">Autotanque activo</span>
+                <p id="autotanqueActivoText" class="autotanque-activo-text">
+                  — Elija Planta → PDV Autotanque → número —
+                </p>
+              </div>
+              <label class="grow">
+                API key (<code>x-api-key</code>)
+                <input
+                  id="inpApiKey"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="Misma que API_KEY_CONSOLE o API_KEY_RASPBERRY"
+                />
+              </label>
+              <button type="button" id="btnGuardarKey" class="btn secondary">
+                Guardar clave
+              </button>
+            </div>
+          </header>
+
+          <section class="actions">
+            <button type="button" id="btnPedido" class="btn secondary" disabled>
+              Nuevo pedido
+            </button>
+            <button type="button" id="btnRefrescar" class="btn secondary" disabled>
+              Actualizar
+            </button>
+            <div class="status" id="statusMsg"></div>
+          </section>
+
+          <section class="map-layout" aria-label="Pedido actual y lista">
+            <article class="panel-wrap pedido-actual-panel">
+              <h2>Pedido actual / seleccionado</h2>
+              <div id="pedidoActualCard" class="pedido-actual-card"></div>
+            </article>
+            <article class="panel-wrap" style="margin:0;">
+              <h2>Solicitudes y cancelados <span class="hint">(ordenadas por litros, de alto a bajo)</span></h2>
+              <div id="pedidoStack" class="event-stack"></div>
+            </article>
+          </section>
+
+          <div id="pedidoModal" class="modal-overlay" hidden>
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pedidoModalTitle">
+              <h2 id="pedidoModalTitle">Nueva Solicitud</h2>
+              <form id="pedidoForm">
+                <div class="form-grid">
+                  <label>
+                    Cliente
+                    <input id="inpClienteNombre" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    Teléfono
+                    <input id="inpTelefonoOrigen" type="text" autocomplete="off" />
+                  </label>
+
+                  <label>
+                    Colonia
+                    <input id="inpColonia" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    Calle
+                    <input id="inpCalle" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    CP
+                    <input id="inpCp" type="text" inputmode="numeric" autocomplete="off" placeholder="CP647489" />
+                  </label>
+                  <label>
+                    Número exterior
+                    <input id="inpNumExterior" type="text" autocomplete="off" />
+                  </label>
+                  <label>
+                    Número interior
+                    <input id="inpNumInterior" type="text" autocomplete="off" placeholder="N/A" />
+                  </label>
+
+                  <label>
+                    Casa / Empresa
+                    <select id="selTipoOrigen">
+                      <option value="casa">Casa</option>
+                      <option value="empresa">Empresa</option>
+                    </select>
+                  </label>
+                  <label>
+                    Nombre de empresa
+                    <input id="inpNombreEmpresa" type="text" autocomplete="off" placeholder="N/A" />
+                  </label>
+
+                  <label style="grid-column: 1 / -1;">
+                    Litros solicitados (entero > 0)
+                    <input id="inpLitrosSolicitados" type="number" step="1" min="1" autocomplete="off" />
+                  </label>
+                </div>
+
+                <div id="pedidoStatusMsg" class="status err" style="min-height: 1.2rem; margin-top: 0.75rem;"></div>
+
+                <div class="modal-actions">
+                  <button type="button" id="btnPedidoCancelar" class="btn secondary">
+                    Cancelar
+                  </button>
+                  <button type="submit" id="btnPedidoGuardar" class="btn primary">
+                    Guardar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
-      </header>
-      <section class="simple-content">
-        <div class="placeholder-panel">
-          <h2>En construcción</h2>
-          <p>
-            Próximamente: listado, filtros y detalle de pedidos. Por ahora, la gestión de pedidos sigue dentro de
-            <a href="./telemetria.html">Telemetría</a>.
-          </p>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
+
+    <script src="./pedidos.js?v=pedidos-1"></script>
   </body>
 </html>
 
