@@ -270,10 +270,20 @@ body {
 /* ------------------------------------------------------------
    Taller (Kanban)
    ------------------------------------------------------------ */
+.taller-body {
+  /* Taller debe ocupar toda la pantalla sin barras globales */
+  height: 100vh;
+  overflow: hidden;
+}
+
 .taller-shell {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 2.75rem;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  padding: 0.9rem 0.9rem 1rem;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .taller-header {
@@ -325,14 +335,25 @@ body {
   grid-auto-columns: minmax(260px, 1fr);
   gap: 0.85rem;
   overflow: auto;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  flex: 1 1 auto;
+  align-content: start;
+  /* Centrar el tablero si cabe en el ancho */
+  justify-content: center;
+  /* ocultar barra, mantener scroll */
+  scrollbar-width: none; /* Firefox */
+}
+
+.taller-board::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .kanban-col {
   background: rgba(18, 24, 32, 0.75);
   border: 1px solid var(--border);
   border-radius: 14px;
-  min-height: 70vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
