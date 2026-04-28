@@ -13,24 +13,108 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="simple-page">
-      <header class="simple-header">
+    <div class="app">
+      <div class="page-topbar">
         <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
-        <div class="simple-titlewrap">
-          <h1>Configuración</h1>
-          <p class="sub">Placeholder: asignación Raspberry/tarjeta/API key → unidad/autotanque/PDV.</p>
+      </div>
+
+      <div class="app-layout">
+        <aside class="sidebar" aria-label="Configuración de activos y tarjetas">
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPlanta">Planta</label>
+            <select id="selPlanta" aria-label="Seleccionar planta">
+              <option value="">— Guarde la API key —</option>
+            </select>
+          </div>
+
+          <div class="sidebar-block">
+            <label class="sidebar-label" for="selPdv">PDV</label>
+            <select id="selPdv" aria-label="Seleccionar PDV" disabled>
+              <option value="">— Elija planta —</option>
+            </select>
+          </div>
+
+          <div class="sidebar-block" id="sidebarEstacionWrap" hidden>
+            <label class="sidebar-label" for="selEstacion">Estación</label>
+            <select id="selEstacion" aria-label="Seleccionar estación (PDV Estación)" disabled>
+              <option value="">— Elija PDV Estación —</option>
+            </select>
+          </div>
+
+          <div class="sidebar-block" id="sidebarAlmacenWrap" hidden>
+            <label class="sidebar-label" for="selAlmacen">Almacén</label>
+            <select id="selAlmacen" aria-label="Seleccionar almacén (PDV Almacén)" disabled>
+              <option value="">— Elija PDV Almacén —</option>
+            </select>
+          </div>
+
+          <div class="sidebar-block" id="sidebarAutotanqueWrap" hidden>
+            <label class="sidebar-label" for="selAutotanque">Autotanque</label>
+            <select id="selAutotanque" aria-label="Seleccionar autotanque (PDV Autotanque)" disabled>
+              <option value="">— Elija PDV Autotanque —</option>
+            </select>
+          </div>
+
+          <div class="sidebar-block sidebar-tarjeta" id="sidebarTarjetaWrap" hidden>
+            <span class="sidebar-label">ID tarjeta (Raspberry)</span>
+            <p class="tripulacion-hint">
+              Asigna RPI-001…040 al activo seleccionado (estación, almacén o autotanque). Vacío = sin asignar.
+            </p>
+            <label class="sidebar-sublabel" for="selTarjeta">Tarjeta</label>
+            <select id="selTarjeta" aria-label="Tarjeta Raspberry RPI" disabled>
+              <option value="">— —</option>
+            </select>
+            <button type="button" id="btnGuardarTarjeta" class="btn secondary tripulacion-btn" disabled>
+              Guardar tarjeta
+            </button>
+          </div>
+        </aside>
+
+        <div class="main-column">
+          <header class="header">
+            <div class="header-top">
+              <div class="header-titles">
+                <h1>Configuración</h1>
+                <p class="sub">
+                  Asigna tarjetas RPI a estaciones, almacenes o autotanques. Esta sección usa los mismos endpoints y
+                  la misma API key que Telemetría.
+                </p>
+              </div>
+            </div>
+
+            <div class="config-row">
+              <label class="grow">
+                API key (<code>x-api-key</code>)
+                <input
+                  id="inpApiKey"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="Misma que API_KEY_CONSOLE o API_KEY_RASPBERRY"
+                />
+              </label>
+              <button type="button" id="btnGuardarKey" class="btn secondary">Guardar clave</button>
+              <div class="status" id="statusMsg"></div>
+            </div>
+          </header>
+
+          <section class="panel-wrap">
+            <h2>Asignación de tarjetas <span class="hint">(selecciona Planta → PDV → activo)</span></h2>
+            <p class="hint" style="margin: 0 0 0.75rem;">
+              Al asignar una tarjeta, el backend permite que esa Raspberry envíe telemetría GPS al activo.
+            </p>
+            <div class="placeholder-panel">
+              <h2>Listo para usar</h2>
+              <p>
+                Selecciona en la barra lateral y usa <strong>Guardar tarjeta</strong>. No hay polling ni mapa en esta
+                sección para evitar carga extra.
+              </p>
+            </div>
+          </section>
         </div>
-      </header>
-      <section class="simple-content">
-        <div class="placeholder-panel">
-          <h2>En construcción</h2>
-          <p>
-            Próximamente: configuración centralizada. Por ahora, la asignación de tarjeta RPI y tripulación está en
-            <a href="./telemetria.html">Telemetría</a>.
-          </p>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
+
+    <script src="./configuracion.js?v=configuracion-1"></script>
   </body>
 </html>
 
