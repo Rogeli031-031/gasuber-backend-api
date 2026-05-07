@@ -13,6 +13,7 @@ exports.consolaRoutes.get("/pdv-estacion", consola_controller_1.getPdvEstacionCo
 exports.consolaRoutes.get("/pdv-almacen", consola_controller_1.getPdvAlmacenConsola);
 exports.consolaRoutes.get("/pdv-autotanque", consola_controller_1.getPdvAutotanqueConsola);
 exports.consolaRoutes.get("/informacion-autotanque", consola_controller_1.getInformacionAutotanqueConsola);
+exports.consolaRoutes.get("/informacion-autotanque-alarmas", consola_controller_1.getInformacionAutotanqueAlarmasConsola);
 exports.consolaRoutes.get("/activos-tarjetas", consola_controller_1.getActivosTarjetasConsola);
 exports.consolaRoutes.get("/tarjetas", consola_controller_1.getTarjetasConsola);
 exports.consolaRoutes.patch("/activo-tarjeta", consola_controller_1.patchActivoTarjetaConsola);

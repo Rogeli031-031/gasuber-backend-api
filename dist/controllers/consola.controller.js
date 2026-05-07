@@ -24,6 +24,7 @@ exports.postPedidoConsola = postPedidoConsola;
 exports.postPedidoAvanzarConsola = postPedidoAvanzarConsola;
 exports.postPedidoCancelarConsola = postPedidoCancelarConsola;
 exports.getInformacionAutotanqueConsola = getInformacionAutotanqueConsola;
+exports.getInformacionAutotanqueAlarmasConsola = getInformacionAutotanqueAlarmasConsola;
 const axios_1 = __importDefault(require("axios"));
 const unidades_service_1 = require("../services/unidades.service");
 const telemetria_service_1 = require("../services/telemetria.service");
@@ -923,10 +924,40 @@ async function getInformacionAutotanqueConsola(req, res) {
         if (pg.code === "42P01") {
             return res.status(500).json({
                 ok: false,
-                error: "No existe la tabla ID-PDV-AUTOTANQUE en PostgreSQL.",
-                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/016_id_pdv_autotanque.sql",
+                error: "Falta una tabla en PostgreSQL (ID-PDV-AUTOTANQUE o Alarmas).",
+                hint: "Ejecute: node scripts/migrate.cjs --file=sql/016_id_pdv_autotanque.sql y sql/022_alarmas.sql",
             });
         }
         return res.status(500).json({ ok: false, error: "Error armando tabla de información" });
+    }
+}
+async function getInformacionAutotanqueAlarmasConsola(req, res) {
+    try {
+        const plantaIdRaw = req.query.planta_id;
+        const plantaId = typeof plantaIdRaw === "string"
+            ? plantaIdRaw.trim()
+            : plantaIdRaw != null
+                ? String(plantaIdRaw).trim()
+                : "";
+        if (!plantaId || !/^\d+$/.test(plantaId)) {
+            return res.status(400).json({
+                ok: false,
+                error: "query planta_id requerido (id numérico de la planta)",
+            });
+        }
+        const resumen = await (0, informacionAutotanque_service_1.getResumenAlarmasInformacionAutotanque)(plantaId);
+        return res.json({ ok: true, ...resumen });
+    }
+    catch (error) {
+        console.error("[consola] getInformacionAutotanqueAlarmasConsola:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existe la tabla Alarmas o ID-PDV-AUTOTANQUE en PostgreSQL.",
+                hint: "En el servidor: node scripts/migrate.cjs --file=sql/022_alarmas.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error evaluando alarmas de información" });
     }
 }

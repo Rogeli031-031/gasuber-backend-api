@@ -10,7 +10,9 @@ dotenv_1.default.config({
 });
 console.log("🚀 arrancando server...");
 const app_1 = __importDefault(require("./app"));
+const informacionAlarmasSweep_1 = require("./jobs/informacionAlarmasSweep");
 const PORT = process.env.PORT || 3000;
 app_1.default.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    (0, informacionAlarmasSweep_1.startInformacionAlarmasSweepJob)();
 });

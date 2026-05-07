@@ -17,6 +17,37 @@
   const theadRow = document.getElementById("informacionTheadRow");
   const tbody = document.getElementById("informacionTbody");
   const subpdvButtons = document.querySelectorAll(".informacion-subpdv-btn[data-autotanque-seccion]");
+  const btnAutotanque = document.querySelector(".informacion-pdv-btn[data-pdv-kind=\"autotanque\"]");
+  const iconoAlarmaAutotanque = btnAutotanque
+    ? btnAutotanque.querySelector(".informacion-pdv-alarm-icon")
+    : null;
+
+  function setIconoAlarmaAutotanque(activa) {
+    if (!iconoAlarmaAutotanque) return;
+    iconoAlarmaAutotanque.hidden = !activa;
+    if (btnAutotanque) {
+      btnAutotanque.setAttribute(
+        "aria-label",
+        activa ? "Autotanque — hay alertas de expediente o fechas vencidas" : "Autotanque"
+      );
+    }
+  }
+
+  async function refrescarIconoAlarmaAutotanque() {
+    const plantaId = selPlanta && selPlanta.value ? String(selPlanta.value).trim() : "";
+    const key = (inpApiKey && inpApiKey.value.trim()) || sessionStorage.getItem(STORAGE_KEY);
+    if (!plantaId || !key) {
+      setIconoAlarmaAutotanque(false);
+      return;
+    }
+    try {
+      const q = "/api/consola/informacion-autotanque-alarmas?planta_id=" + encodeURIComponent(plantaId);
+      const data = await fetchJson(q, { headers: apiHeaders() });
+      setIconoAlarmaAutotanque(Boolean(data.planta_alarmas_informacion));
+    } catch {
+      setIconoAlarmaAutotanque(false);
+    }
+  }
 
   function setStatus(text, kind) {
     if (!statusMsg) return;
@@ -85,6 +116,7 @@
     syncPdvButtonUI(kind);
     if (kind === "autotanque") {
       if (wrapAutotanque) wrapAutotanque.hidden = false;
+      void refrescarIconoAlarmaAutotanque();
     } else {
       sessionStorage.removeItem(STORAGE_INFORMACION_AUTOTANQUE_SECCION);
       ocultarAutotanqueCompleto();
@@ -102,6 +134,7 @@
       avisoTabla.hidden = true;
       avisoTabla.textContent = "";
     }
+    setIconoAlarmaAutotanque(false);
   }
 
   function renderTablaDesdeApi(data) {
@@ -141,25 +174,30 @@
       tr.appendChild(td);
       tbody.appendChild(tr);
     } else {
-      for (const fila of filas) {
+      const alertasPorFila = data.alertas_celda || [];
+      filas.forEach((fila, rowIdx) => {
         const tr = document.createElement("tr");
+        const alertRow = alertasPorFila[rowIdx] || {};
         for (const col of columnas) {
           const td = document.createElement("td");
           const raw = fila[col.key];
           const t = raw == null || String(raw).trim() === "" ? "" : String(raw);
+          const alerta = Boolean(alertRow[col.key]);
           if (!t) {
-            td.className = "informacion-celda-vacia";
             td.textContent = "—";
+            td.className = alerta ? "informacion-celda-vacia informacion-celda-alerta" : "informacion-celda-vacia";
           } else {
             td.innerHTML = escapeHtml(t);
+            if (alerta) td.classList.add("informacion-celda-alerta");
           }
           tr.appendChild(td);
         }
         tbody.appendChild(tr);
-      }
+      });
     }
 
     hostTabla.hidden = false;
+    setIconoAlarmaAutotanque(Boolean(data.planta_alarmas_informacion));
   }
 
   async function cargarTablaAutotanque(seccion) {
@@ -244,6 +282,9 @@
       if (pdvKind === "autotanque" && sec && wrapAutotanque && !wrapAutotanque.hidden) {
         syncSubpdvButtonUI(sec);
         await cargarTablaAutotanque(sec);
+      } else if (pdvKind === "autotanque" && wrapAutotanque && !wrapAutotanque.hidden) {
+        syncSubpdvButtonUI(sec || "");
+        void refrescarIconoAlarmaAutotanque();
       }
     } catch (e) {
       selPlanta.innerHTML = "";
@@ -291,12 +332,14 @@
       if (!id) {
         sessionStorage.removeItem(STORAGE_PLANTA_ID);
         if (hostTabla) hostTabla.hidden = true;
+        void refrescarIconoAlarmaAutotanque();
         return;
       }
       sessionStorage.setItem(STORAGE_PLANTA_ID, id);
       const sec = sessionStorage.getItem(STORAGE_INFORMACION_AUTOTANQUE_SECCION);
       const pdvKind = sessionStorage.getItem(STORAGE_INFORMACION_PDV_KIND);
-      if (pdvKind === "autotanque" && sec) cargarTablaAutotanque(sec);
+      if (pdvKind === "autotanque" && sec) void cargarTablaAutotanque(sec);
+      else if (pdvKind === "autotanque") void refrescarIconoAlarmaAutotanque();
     });
   }
 
@@ -334,5 +377,9 @@
     const sec = sessionStorage.getItem(STORAGE_INFORMACION_AUTOTANQUE_SECCION);
     if (sec) syncSubpdvButtonUI(sec);
   }
-  cargarPlantas();
+  void cargarPlantas().then(() => {
+    if (sessionStorage.getItem(STORAGE_INFORMACION_PDV_KIND) === "autotanque") {
+      void refrescarIconoAlarmaAutotanque();
+    }
+  });
 })();

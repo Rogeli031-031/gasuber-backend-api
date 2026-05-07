@@ -269,6 +269,9 @@ body {
 }
 
 .informacion-pdv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   min-height: clamp(168px, 26vh, 300px);
   padding: 1.25rem 1rem;
@@ -325,6 +328,41 @@ body {
 
 .informacion-pdv-btn.is-selected::before {
   opacity: 1;
+}
+
+.informacion-pdv-btn.is-selected .informacion-pdv-alarm-icon {
+  color: var(--red);
+}
+
+.informacion-pdv-btn--autotanque {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.informacion-pdv-btn-label {
+  display: block;
+}
+
+.informacion-pdv-alarm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--red);
+  filter: drop-shadow(0 0 6px rgba(248, 81, 73, 0.55));
+  line-height: 0;
+}
+
+.informacion-pdv-alarm-icon[hidden] {
+  display: none !important;
+}
+
+.informacion-celda-alerta {
+  color: var(--red) !important;
+  font-weight: 600;
+  text-shadow: 0 0 8px rgba(248, 81, 73, 0.35);
 }
 
 /* --- Información: sub-rubros autotanque + tabla --- */

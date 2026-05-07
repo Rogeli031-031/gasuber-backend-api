@@ -53,8 +53,32 @@
         </div>
 
         <div class="informacion-pdv-wrap" role="group" aria-label="Tipo de punto de venta">
-          <button type="button" class="informacion-pdv-btn" data-pdv-kind="autotanque">
-            Autotanque
+          <button
+            type="button"
+            class="informacion-pdv-btn informacion-pdv-btn--autotanque"
+            data-pdv-kind="autotanque"
+            aria-label="Autotanque"
+          >
+            <span class="informacion-pdv-btn-label">Autotanque</span>
+            <span class="informacion-pdv-alarm-icon" hidden aria-hidden="true" title="Alertas de expediente">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+                <path
+                  d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.563 17 10.001 17 8V6a5 5 0 0 0-10 0v2c0 2-.693 4.363-2.74 7.326"
+                />
+              </svg>
+            </span>
           </button>
           <button type="button" class="informacion-pdv-btn" data-pdv-kind="almacen">Almacén</button>
           <button type="button" class="informacion-pdv-btn" data-pdv-kind="estacion">Estaciones</button>
@@ -98,7 +122,7 @@
         </div>
       </section>
     </main>
-    <script src="./informacion.js?v=informacion-2"></script>
+    <script src="./informacion.js?v=informacion-3"></script>
   </body>
 </html>
 

@@ -1,4 +1,10 @@
-import { listAutotanquesPorPlanta } from "./plantasPdv.service";
+import { db } from "../config/db";
+import { listAutotanquesPorPlanta, type AutotanqueRow } from "./plantasPdv.service";
+import {
+  celdaRequiereAlerta,
+  motivoAlerta,
+  type VigilanciaTipo,
+} from "./informacionAutotanqueVigencia";
 
 /** Puebla: datos de expediente cargados en código; otras plantas devuelven solo NUMERO (BD) hasta migrar a tablas. */
 export const PLANTA_PUEBLA_ID = "1";
@@ -10,7 +16,12 @@ export type InformacionAutotanqueSeccion =
   | "nom_0013"
   | "transito";
 
-export type InformacionColumna = { key: string; etiqueta: string };
+export type InformacionColumna = {
+  key: string;
+  etiqueta: string;
+  /** Columnas vigiladas para rojo + registro en Alarmas. */
+  vigilancia?: VigilanciaTipo;
+};
 
 export type InformacionAutotanqueTabla = {
   seccion: InformacionAutotanqueSeccion;
@@ -19,6 +30,17 @@ export type InformacionAutotanqueTabla = {
   datos_cargados: boolean;
   columnas: InformacionColumna[];
   filas: Array<Record<string, string | null>>;
+  /** Misma longitud que filas; true = texto en rojo en consola. */
+  alertas_celda: Array<Record<string, boolean>>;
+  /** Hay al menos una alarma de expediente autotanque para esta planta (todas las secciones). */
+  planta_alarmas_informacion: boolean;
+};
+
+export type InformacionAlarmaInsert = {
+  autotanque_id: string;
+  unidad_clave: string;
+  tipo: string;
+  detalle: Record<string, unknown>;
 };
 
 const SECCIONES: InformacionAutotanqueSeccion[] = [
@@ -58,25 +80,27 @@ const COLUMNAS: Record<InformacionAutotanqueSeccion, InformacionColumna[]> = {
     {
       key: "dictamen_007_005_vence",
       etiqueta: "DICTAMEN 007 EM Y 005 VENCE EN:",
+      vigilancia: "fecha",
     },
     {
       key: "poliza_flotilla_vence",
       etiqueta: "POLIZA FLOTILLA VENCE EN: (NINGUNA CONSIDERA RESPONSABILIDAD ECOLOGICA)",
+      vigilancia: "fecha",
     },
-    { key: "poliza_rc_vence", etiqueta: "POLIZA DE RESPONSABILIDAD CIVIL" },
+    { key: "poliza_rc_vence", etiqueta: "POLIZA DE RESPONSABILIDAD CIVIL", vigilancia: "fecha" },
   ],
   nom_0013: [
     { key: "numero", etiqueta: "NUMERO" },
-    { key: "folio_ultrasonido", etiqueta: "FOLIO DE ULTRASONIDO" },
-    { key: "vence", etiqueta: "VENCE EN" },
+    { key: "folio_ultrasonido", etiqueta: "FOLIO DE ULTRASONIDO", vigilancia: "presencia" },
+    { key: "vence", etiqueta: "VENCE EN", vigilancia: "fecha" },
   ],
   transito: [
     { key: "numero", etiqueta: "NUMERO" },
-    { key: "tarjeta_circulacion", etiqueta: "TARJETA DE CIRCULACIÓN" },
-    { key: "permiso_carga_vence", etiqueta: "PERMISO DE CARGA VENCE EN" },
-    { key: "emplacamiento", etiqueta: "EMPLACAMIENTO" },
-    { key: "verificacion_gases", etiqueta: "VERIFICACION DE GASES" },
-    { key: "extintores_vence", etiqueta: "EXTINTORES VENCE EN" },
+    { key: "tarjeta_circulacion", etiqueta: "TARJETA DE CIRCULACIÓN", vigilancia: "presencia" },
+    { key: "permiso_carga_vence", etiqueta: "PERMISO DE CARGA VENCE EN", vigilancia: "fecha" },
+    { key: "emplacamiento", etiqueta: "EMPLACAMIENTO", vigilancia: "presencia" },
+    { key: "verificacion_gases", etiqueta: "VERIFICACION DE GASES", vigilancia: "presencia" },
+    { key: "extintores_vence", etiqueta: "EXTINTORES VENCE EN", vigilancia: "fecha" },
   ],
 };
 
@@ -300,6 +324,130 @@ export function esSeccionInformacionAutotanque(s: string): s is InformacionAutot
   return (SECCIONES as string[]).includes(s);
 }
 
+function filaDesdeAutotanque(
+  at: AutotanqueRow,
+  seccion: InformacionAutotanqueSeccion,
+  seedMap: Record<string, FilaSeed> | null
+): Record<string, string | null> {
+  const columnas = COLUMNAS[seccion];
+  const numero = at.numero;
+  const seed = seedMap ? seedMap[numero] ?? null : null;
+  const row: Record<string, string | null> = {};
+  for (const col of columnas) {
+    if (col.key === "numero") {
+      row.numero = numero;
+      continue;
+    }
+    row[col.key] = seed && col.key in seed ? seed[col.key] ?? null : null;
+  }
+  return row;
+}
+
+function alertasParaFila(
+  seccion: InformacionAutotanqueSeccion,
+  fila: Record<string, string | null>
+): Record<string, boolean> {
+  const columnas = COLUMNAS[seccion];
+  const alertas: Record<string, boolean> = {};
+  for (const col of columnas) {
+    if (!col.vigilancia) continue;
+    alertas[col.key] = celdaRequiereAlerta(col.vigilancia, fila[col.key]);
+  }
+  return alertas;
+}
+
+function construirAlarmasParaSeccion(
+  seccion: InformacionAutotanqueSeccion,
+  autotanques: AutotanqueRow[],
+  seedMap: Record<string, FilaSeed> | null
+): InformacionAlarmaInsert[] {
+  const columnas = COLUMNAS[seccion];
+  const out: InformacionAlarmaInsert[] = [];
+  for (const at of autotanques) {
+    const fila = filaDesdeAutotanque(at, seccion, seedMap);
+    for (const col of columnas) {
+      if (!col.vigilancia) continue;
+      const raw = fila[col.key];
+      if (!celdaRequiereAlerta(col.vigilancia, raw)) continue;
+      const motivo = motivoAlerta(col.vigilancia, raw);
+      out.push({
+        autotanque_id: at.id,
+        unidad_clave: at.numero,
+        tipo: `informacion_autotanque|${seccion}|${col.key}`,
+        detalle: {
+          seccion,
+          columna: col.key,
+          etiqueta: col.etiqueta,
+          numero: at.numero,
+          motivo,
+          valor: raw ?? null,
+        },
+      });
+    }
+  }
+  return out;
+}
+
+export function construirTodasAlarmasInformacionAutotanque(
+  plantaId: string,
+  autotanques: AutotanqueRow[]
+): InformacionAlarmaInsert[] {
+  const datosPuebla = plantaId === PLANTA_PUEBLA_ID;
+  const all: InformacionAlarmaInsert[] = [];
+  for (const seccion of SECCIONES) {
+    const seedMap = datosPuebla ? PUEBLA_POR_SECCION[seccion] : null;
+    all.push(...construirAlarmasParaSeccion(seccion, autotanques, seedMap));
+  }
+  return all;
+}
+
+const ORIGEN_INFORMACION = "informacion_autotanque";
+
+export async function reemplazarAlarmasInformacionAutotanque(
+  plantaId: string,
+  alarmas: InformacionAlarmaInsert[]
+): Promise<void> {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `DELETE FROM "Alarmas"
+       WHERE origen = $1
+         AND autotanque_id IN (
+           SELECT id FROM "ID-PDV-AUTOTANQUE" WHERE planta_id = $2::bigint
+         )`,
+      [ORIGEN_INFORMACION, plantaId]
+    );
+    for (const a of alarmas) {
+      await client.query(
+        `INSERT INTO "Alarmas" (
+           autotanque_id, unidad_clave, tipo, umbral_kmh, velocidad_kmh, activa, origen, detalle
+         ) VALUES ($1::bigint, $2, $3, NULL, NULL, TRUE, $4, $5::jsonb)`,
+        [a.autotanque_id, a.unidad_clave, a.tipo, ORIGEN_INFORMACION, JSON.stringify(a.detalle)]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/** Sincroniza Alarmas para expediente y devuelve si quedó alguna activa. */
+export async function sincronizarYContarAlarmasInformacionAutotanque(
+  plantaId: string,
+  autotanques: AutotanqueRow[]
+): Promise<{ alarmas: InformacionAlarmaInsert[]; planta_alarmas_informacion: boolean }> {
+  const alarmas = construirTodasAlarmasInformacionAutotanque(plantaId, autotanques);
+  await reemplazarAlarmasInformacionAutotanque(plantaId, alarmas);
+  return {
+    alarmas,
+    planta_alarmas_informacion: alarmas.length > 0,
+  };
+}
+
 export async function getInformacionAutotanqueTabla(
   plantaId: string,
   seccion: InformacionAutotanqueSeccion
@@ -309,19 +457,18 @@ export async function getInformacionAutotanqueTabla(
   const seedMap = datos_cargados ? PUEBLA_POR_SECCION[seccion] : null;
 
   const autotanques = await listAutotanquesPorPlanta(plantaId);
-  const filas: Array<Record<string, string | null>> = autotanques.map((at) => {
-    const numero = at.numero;
-    const seed = seedMap ? seedMap[numero] ?? null : null;
-    const row: Record<string, string | null> = {};
-    for (const col of columnas) {
-      if (col.key === "numero") {
-        row.numero = numero;
-        continue;
-      }
-      row[col.key] = seed && col.key in seed ? seed[col.key] ?? null : null;
-    }
-    return row;
-  });
+  const { planta_alarmas_informacion } = await sincronizarYContarAlarmasInformacionAutotanque(
+    plantaId,
+    autotanques
+  );
+
+  const filas: Array<Record<string, string | null>> = [];
+  const alertas_celda: Array<Record<string, boolean>> = [];
+  for (const at of autotanques) {
+    const row = filaDesdeAutotanque(at, seccion, seedMap);
+    filas.push(row);
+    alertas_celda.push(alertasParaFila(seccion, row));
+  }
 
   return {
     seccion,
@@ -329,5 +476,41 @@ export async function getInformacionAutotanqueTabla(
     datos_cargados,
     columnas,
     filas,
+    alertas_celda,
+    planta_alarmas_informacion,
   };
+}
+
+/** Solo icono / badge sin cargar una tabla concreta. */
+export async function getResumenAlarmasInformacionAutotanque(
+  plantaId: string
+): Promise<{ planta_alarmas_informacion: boolean }> {
+  const autotanques = await listAutotanquesPorPlanta(plantaId);
+  const { planta_alarmas_informacion } = await sincronizarYContarAlarmasInformacionAutotanque(
+    plantaId,
+    autotanques
+  );
+  return { planta_alarmas_informacion };
+}
+
+/**
+ * Barrido para todas las plantas que tienen autotanques (p. ej. cron 05:00).
+ * Misma lógica que al abrir Información: NOW() implícito vía `new Date()` en vigencia.
+ */
+export async function barridoAlarmasInformacionAutotanqueTodasLasPlantas(): Promise<{
+  plantas: number;
+  total_alarmas: number;
+}> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT DISTINCT planta_id::text AS id
+     FROM "ID-PDV-AUTOTANQUE"
+     ORDER BY planta_id::bigint`
+  );
+  let total_alarmas = 0;
+  for (const r of rows) {
+    const autotanques = await listAutotanquesPorPlanta(r.id);
+    const { alarmas } = await sincronizarYContarAlarmasInformacionAutotanque(r.id, autotanques);
+    total_alarmas += alarmas.length;
+  }
+  return { plantas: rows.length, total_alarmas };
 }
