@@ -59,9 +59,46 @@
           <button type="button" class="informacion-pdv-btn" data-pdv-kind="almacen">Almacén</button>
           <button type="button" class="informacion-pdv-btn" data-pdv-kind="estacion">Estaciones</button>
         </div>
+
+        <div id="informacionAutotanqueWrap" class="informacion-autotanque-wrap" hidden>
+          <p class="informacion-autotanque-hint">
+            Rubros de expediente por unidad. La columna <strong>NUMERO</strong> coincide con
+            <code>gasuber."ID-PDV-AUTOTANQUE"."NUMERO"</code> de la planta elegida.
+          </p>
+          <div class="informacion-subpdv-wrap" role="group" aria-label="Rubros autotanque">
+            <button type="button" class="informacion-subpdv-btn" data-autotanque-seccion="tanque_almacen">
+              Tanque almacén
+            </button>
+            <button type="button" class="informacion-subpdv-btn" data-autotanque-seccion="tanque_carburacion">
+              Tanque de carburación
+            </button>
+            <button type="button" class="informacion-subpdv-btn" data-autotanque-seccion="permisos_cne">
+              Permisos CNE
+            </button>
+            <button type="button" class="informacion-subpdv-btn" data-autotanque-seccion="nom_0013">
+              NOM 0013 SEDG 2002 tanque
+            </button>
+            <button type="button" class="informacion-subpdv-btn" data-autotanque-seccion="transito">
+              Tránsito
+            </button>
+          </div>
+
+          <div id="informacionTablaHost" class="informacion-tabla-host" hidden>
+            <h3 id="informacionTablaTitulo" class="informacion-tabla-titulo"></h3>
+            <p id="informacionTablaAviso" class="informacion-tabla-aviso" hidden></p>
+            <div class="informacion-table-scroll">
+              <table class="informacion-data-table" id="informacionDataTable" aria-describedby="informacionTablaAviso">
+                <thead>
+                  <tr id="informacionTheadRow"></tr>
+                </thead>
+                <tbody id="informacionTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
-    <script src="./informacion.js?v=informacion-1"></script>
+    <script src="./informacion.js?v=informacion-2"></script>
   </body>
 </html>
 

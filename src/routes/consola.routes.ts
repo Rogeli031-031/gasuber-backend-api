@@ -21,6 +21,7 @@ import {
   postPedidoCancelarConsola,
   postPedidoConsola,
   postInicioRuta,
+  getInformacionAutotanqueConsola,
 } from "../controllers/consola.controller";
 
 export const consolaRoutes = Router();
@@ -33,6 +34,7 @@ consolaRoutes.get("/pdv", getPdvConsola);
 consolaRoutes.get("/pdv-estacion", getPdvEstacionConsola);
 consolaRoutes.get("/pdv-almacen", getPdvAlmacenConsola);
 consolaRoutes.get("/pdv-autotanque", getPdvAutotanqueConsola);
+consolaRoutes.get("/informacion-autotanque", getInformacionAutotanqueConsola);
 consolaRoutes.get("/activos-tarjetas", getActivosTarjetasConsola);
 consolaRoutes.get("/tarjetas", getTarjetasConsola);
 consolaRoutes.patch("/activo-tarjeta", patchActivoTarjetaConsola);

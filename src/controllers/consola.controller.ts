@@ -32,6 +32,10 @@ import {
   setTarjetaActivo,
   type TipoActivoTarjeta,
 } from "../services/tarjetas.service";
+import {
+  esSeccionInformacionAutotanque,
+  getInformacionAutotanqueTabla,
+} from "../services/informacionAutotanque.service";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -1018,5 +1022,53 @@ export async function postPedidoCancelarConsola(req: Request, res: Response) {
       ok: false,
       error: e.message || "Error cancelando el pedido",
     });
+  }
+}
+
+/** Tablas de expediente por autotanque (NUMERO = columna en ID-PDV-AUTOTANQUE). Datos de expediente: Puebla en código; otras plantas solo estructura + NUMERO desde BD. */
+export async function getInformacionAutotanqueConsola(req: Request, res: Response) {
+  try {
+    const plantaIdRaw = req.query.planta_id;
+    const plantaId =
+      typeof plantaIdRaw === "string"
+        ? plantaIdRaw.trim()
+        : plantaIdRaw != null
+          ? String(plantaIdRaw).trim()
+          : "";
+    if (!plantaId || !/^\d+$/.test(plantaId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "query planta_id requerido (id numérico de la planta)",
+      });
+    }
+
+    const seccionRaw = req.query.seccion;
+    const seccion =
+      typeof seccionRaw === "string"
+        ? seccionRaw.trim()
+        : seccionRaw != null
+          ? String(seccionRaw).trim()
+          : "";
+    if (!seccion || !esSeccionInformacionAutotanque(seccion)) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "query seccion inválida. Valores: tanque_almacen, tanque_carburacion, permisos_cne, nom_0013, transito",
+      });
+    }
+
+    const tabla = await getInformacionAutotanqueTabla(plantaId, seccion);
+    return res.json({ ok: true, ...tabla });
+  } catch (error) {
+    console.error("[consola] getInformacionAutotanqueConsola:", error);
+    const pg = error as { code?: string };
+    if (pg.code === "42P01") {
+      return res.status(500).json({
+        ok: false,
+        error: "No existe la tabla ID-PDV-AUTOTANQUE en PostgreSQL.",
+        hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/016_id_pdv_autotanque.sql",
+      });
+    }
+    return res.status(500).json({ ok: false, error: "Error armando tabla de información" });
   }
 }

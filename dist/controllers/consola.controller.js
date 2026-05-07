@@ -23,6 +23,7 @@ exports.getPedidosConsola = getPedidosConsola;
 exports.postPedidoConsola = postPedidoConsola;
 exports.postPedidoAvanzarConsola = postPedidoAvanzarConsola;
 exports.postPedidoCancelarConsola = postPedidoCancelarConsola;
+exports.getInformacionAutotanqueConsola = getInformacionAutotanqueConsola;
 const axios_1 = __importDefault(require("axios"));
 const unidades_service_1 = require("../services/unidades.service");
 const telemetria_service_1 = require("../services/telemetria.service");
@@ -32,6 +33,7 @@ const whatsapp_service_1 = require("../services/whatsapp.service");
 const plantasPdv_service_1 = require("../services/plantasPdv.service");
 const tripulacion_service_1 = require("../services/tripulacion.service");
 const tarjetas_service_1 = require("../services/tarjetas.service");
+const informacionAutotanque_service_1 = require("../services/informacionAutotanque.service");
 function toFiniteNumber(value) {
     if (typeof value === "number" && Number.isFinite(value))
         return value;
@@ -883,5 +885,48 @@ async function postPedidoCancelarConsola(req, res) {
             ok: false,
             error: e.message || "Error cancelando el pedido",
         });
+    }
+}
+/** Tablas de expediente por autotanque (NUMERO = columna en ID-PDV-AUTOTANQUE). Datos de expediente: Puebla en código; otras plantas solo estructura + NUMERO desde BD. */
+async function getInformacionAutotanqueConsola(req, res) {
+    try {
+        const plantaIdRaw = req.query.planta_id;
+        const plantaId = typeof plantaIdRaw === "string"
+            ? plantaIdRaw.trim()
+            : plantaIdRaw != null
+                ? String(plantaIdRaw).trim()
+                : "";
+        if (!plantaId || !/^\d+$/.test(plantaId)) {
+            return res.status(400).json({
+                ok: false,
+                error: "query planta_id requerido (id numérico de la planta)",
+            });
+        }
+        const seccionRaw = req.query.seccion;
+        const seccion = typeof seccionRaw === "string"
+            ? seccionRaw.trim()
+            : seccionRaw != null
+                ? String(seccionRaw).trim()
+                : "";
+        if (!seccion || !(0, informacionAutotanque_service_1.esSeccionInformacionAutotanque)(seccion)) {
+            return res.status(400).json({
+                ok: false,
+                error: "query seccion inválida. Valores: tanque_almacen, tanque_carburacion, permisos_cne, nom_0013, transito",
+            });
+        }
+        const tabla = await (0, informacionAutotanque_service_1.getInformacionAutotanqueTabla)(plantaId, seccion);
+        return res.json({ ok: true, ...tabla });
+    }
+    catch (error) {
+        console.error("[consola] getInformacionAutotanqueConsola:", error);
+        const pg = error;
+        if (pg.code === "42P01") {
+            return res.status(500).json({
+                ok: false,
+                error: "No existe la tabla ID-PDV-AUTOTANQUE en PostgreSQL.",
+                hint: "En el servidor (con DATABASE_URL): node scripts/migrate.cjs --file=sql/016_id_pdv_autotanque.sql",
+            });
+        }
+        return res.status(500).json({ ok: false, error: "Error armando tabla de información" });
     }
 }
