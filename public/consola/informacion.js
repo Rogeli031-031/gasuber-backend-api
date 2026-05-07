@@ -33,19 +33,53 @@
     }
   }
 
+  function limpiarAlarmasSubBotones() {
+    subpdvButtons.forEach((btn) => {
+      btn.classList.remove("informacion-subpdv-btn--alarma");
+      const icon = btn.querySelector(".informacion-subpdv-alarm-icon");
+      if (icon) icon.hidden = true;
+      const label = btn.querySelector(".informacion-subpdv-label");
+      const labelText = (label && label.textContent.trim()) || (btn.getAttribute("data-autotanque-seccion") || "");
+      btn.setAttribute("aria-label", labelText);
+    });
+  }
+
+  function aplicarAlarmasPorSeccion(mapRaw) {
+    if (!mapRaw) {
+      limpiarAlarmasSubBotones();
+      return;
+    }
+    subpdvButtons.forEach((btn) => {
+      const sec = btn.getAttribute("data-autotanque-seccion") || "";
+      const tiene = Boolean(mapRaw[sec]);
+      btn.classList.toggle("informacion-subpdv-btn--alarma", tiene);
+      const icon = btn.querySelector(".informacion-subpdv-alarm-icon");
+      if (icon) icon.hidden = !tiene;
+      const label = btn.querySelector(".informacion-subpdv-label");
+      const labelText = (label && label.textContent.trim()) || sec;
+      btn.setAttribute(
+        "aria-label",
+        tiene ? labelText + " — hay alertas de expediente" : labelText
+      );
+    });
+  }
+
   async function refrescarIconoAlarmaAutotanque() {
     const plantaId = selPlanta && selPlanta.value ? String(selPlanta.value).trim() : "";
     const key = (inpApiKey && inpApiKey.value.trim()) || sessionStorage.getItem(STORAGE_KEY);
     if (!plantaId || !key) {
       setIconoAlarmaAutotanque(false);
+      limpiarAlarmasSubBotones();
       return;
     }
     try {
       const q = "/api/consola/informacion-autotanque-alarmas?planta_id=" + encodeURIComponent(plantaId);
       const data = await fetchJson(q, { headers: apiHeaders() });
       setIconoAlarmaAutotanque(Boolean(data.planta_alarmas_informacion));
+      aplicarAlarmasPorSeccion(data.alarmas_por_seccion || null);
     } catch {
       setIconoAlarmaAutotanque(false);
+      limpiarAlarmasSubBotones();
     }
   }
 
@@ -135,6 +169,7 @@
       avisoTabla.textContent = "";
     }
     setIconoAlarmaAutotanque(false);
+    limpiarAlarmasSubBotones();
   }
 
   function renderTablaDesdeApi(data) {
@@ -198,6 +233,7 @@
 
     hostTabla.hidden = false;
     setIconoAlarmaAutotanque(Boolean(data.planta_alarmas_informacion));
+    aplicarAlarmasPorSeccion(data.alarmas_por_seccion || null);
   }
 
   async function cargarTablaAutotanque(seccion) {

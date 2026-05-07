@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PLANTA_PUEBLA_ID = void 0;
 exports.esSeccionInformacionAutotanque = esSeccionInformacionAutotanque;
+exports.alarmasPorSeccionDesdeLista = alarmasPorSeccionDesdeLista;
 exports.construirTodasAlarmasInformacionAutotanque = construirTodasAlarmasInformacionAutotanque;
 exports.reemplazarAlarmasInformacionAutotanque = reemplazarAlarmasInformacionAutotanque;
 exports.sincronizarYContarAlarmasInformacionAutotanque = sincronizarYContarAlarmasInformacionAutotanque;
@@ -279,6 +280,22 @@ const PUEBLA_POR_SECCION = {
 function esSeccionInformacionAutotanque(s) {
     return SECCIONES.includes(s);
 }
+function alarmasPorSeccionDesdeLista(alarmas) {
+    const out = {
+        tanque_almacen: false,
+        tanque_carburacion: false,
+        permisos_cne: false,
+        nom_0013: false,
+        transito: false,
+    };
+    for (const a of alarmas) {
+        const parts = a.tipo.split("|");
+        if (parts.length >= 2 && esSeccionInformacionAutotanque(parts[1])) {
+            out[parts[1]] = true;
+        }
+    }
+    return out;
+}
 function filaDesdeAutotanque(at, seccion, seedMap) {
     const columnas = COLUMNAS[seccion];
     const numero = at.numero;
@@ -388,7 +405,8 @@ async function getInformacionAutotanqueTabla(plantaId, seccion) {
     const datos_cargados = plantaId === exports.PLANTA_PUEBLA_ID;
     const seedMap = datos_cargados ? PUEBLA_POR_SECCION[seccion] : null;
     const autotanques = await (0, plantasPdv_service_1.listAutotanquesPorPlanta)(plantaId);
-    const { planta_alarmas_informacion } = await sincronizarYContarAlarmasInformacionAutotanque(plantaId, autotanques);
+    const { planta_alarmas_informacion, alarmas } = await sincronizarYContarAlarmasInformacionAutotanque(plantaId, autotanques);
+    const alarmas_por_seccion = alarmasPorSeccionDesdeLista(alarmas);
     const filas = [];
     const alertas_celda = [];
     for (const at of autotanques) {
@@ -404,13 +422,17 @@ async function getInformacionAutotanqueTabla(plantaId, seccion) {
         filas,
         alertas_celda,
         planta_alarmas_informacion,
+        alarmas_por_seccion,
     };
 }
 /** Solo icono / badge sin cargar una tabla concreta. */
 async function getResumenAlarmasInformacionAutotanque(plantaId) {
     const autotanques = await (0, plantasPdv_service_1.listAutotanquesPorPlanta)(plantaId);
-    const { planta_alarmas_informacion } = await sincronizarYContarAlarmasInformacionAutotanque(plantaId, autotanques);
-    return { planta_alarmas_informacion };
+    const { planta_alarmas_informacion, alarmas } = await sincronizarYContarAlarmasInformacionAutotanque(plantaId, autotanques);
+    return {
+        planta_alarmas_informacion,
+        alarmas_por_seccion: alarmasPorSeccionDesdeLista(alarmas),
+    };
 }
 /**
  * Barrido para todas las plantas que tienen autotanques (p. ej. cron 05:00).

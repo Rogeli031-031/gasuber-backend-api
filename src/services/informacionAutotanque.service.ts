@@ -16,6 +16,9 @@ export type InformacionAutotanqueSeccion =
   | "nom_0013"
   | "transito";
 
+/** true = esa sección tiene al menos una alarma de expediente. */
+export type InformacionAlarmasPorSeccion = Record<InformacionAutotanqueSeccion, boolean>;
+
 export type InformacionColumna = {
   key: string;
   etiqueta: string;
@@ -34,6 +37,8 @@ export type InformacionAutotanqueTabla = {
   alertas_celda: Array<Record<string, boolean>>;
   /** Hay al menos una alarma de expediente autotanque para esta planta (todas las secciones). */
   planta_alarmas_informacion: boolean;
+  /** Por rubro (sub-botones): si hay alertas en esa sección. */
+  alarmas_por_seccion: InformacionAlarmasPorSeccion;
 };
 
 export type InformacionAlarmaInsert = {
@@ -324,6 +329,25 @@ export function esSeccionInformacionAutotanque(s: string): s is InformacionAutot
   return (SECCIONES as string[]).includes(s);
 }
 
+export function alarmasPorSeccionDesdeLista(
+  alarmas: InformacionAlarmaInsert[]
+): InformacionAlarmasPorSeccion {
+  const out: InformacionAlarmasPorSeccion = {
+    tanque_almacen: false,
+    tanque_carburacion: false,
+    permisos_cne: false,
+    nom_0013: false,
+    transito: false,
+  };
+  for (const a of alarmas) {
+    const parts = a.tipo.split("|");
+    if (parts.length >= 2 && esSeccionInformacionAutotanque(parts[1])) {
+      out[parts[1] as InformacionAutotanqueSeccion] = true;
+    }
+  }
+  return out;
+}
+
 function filaDesdeAutotanque(
   at: AutotanqueRow,
   seccion: InformacionAutotanqueSeccion,
@@ -465,10 +489,11 @@ export async function getInformacionAutotanqueTabla(
   const seedMap = datos_cargados ? PUEBLA_POR_SECCION[seccion] : null;
 
   const autotanques = await listAutotanquesPorPlanta(plantaId);
-  const { planta_alarmas_informacion } = await sincronizarYContarAlarmasInformacionAutotanque(
+  const { planta_alarmas_informacion, alarmas } = await sincronizarYContarAlarmasInformacionAutotanque(
     plantaId,
     autotanques
   );
+  const alarmas_por_seccion = alarmasPorSeccionDesdeLista(alarmas);
 
   const filas: Array<Record<string, string | null>> = [];
   const alertas_celda: Array<Record<string, boolean>> = [];
@@ -486,19 +511,26 @@ export async function getInformacionAutotanqueTabla(
     filas,
     alertas_celda,
     planta_alarmas_informacion,
+    alarmas_por_seccion,
   };
 }
 
 /** Solo icono / badge sin cargar una tabla concreta. */
 export async function getResumenAlarmasInformacionAutotanque(
   plantaId: string
-): Promise<{ planta_alarmas_informacion: boolean }> {
+): Promise<{
+  planta_alarmas_informacion: boolean;
+  alarmas_por_seccion: InformacionAlarmasPorSeccion;
+}> {
   const autotanques = await listAutotanquesPorPlanta(plantaId);
-  const { planta_alarmas_informacion } = await sincronizarYContarAlarmasInformacionAutotanque(
+  const { planta_alarmas_informacion, alarmas } = await sincronizarYContarAlarmasInformacionAutotanque(
     plantaId,
     autotanques
   );
-  return { planta_alarmas_informacion };
+  return {
+    planta_alarmas_informacion,
+    alarmas_por_seccion: alarmasPorSeccionDesdeLista(alarmas),
+  };
 }
 
 /**
