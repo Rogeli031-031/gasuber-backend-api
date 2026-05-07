@@ -422,8 +422,16 @@ export async function reemplazarAlarmasInformacionAutotanque(
       await client.query(
         `INSERT INTO "Alarmas" (
            autotanque_id, unidad_clave, tipo, umbral_kmh, velocidad_kmh, activa, origen, detalle
-         ) VALUES ($1::bigint, $2, $3, NULL, NULL, TRUE, $4, $5::jsonb)`,
-        [a.autotanque_id, a.unidad_clave, a.tipo, ORIGEN_INFORMACION, JSON.stringify(a.detalle)]
+         ) VALUES ($1::bigint, $2, $3, $4::numeric, $5::numeric, TRUE, $6, $7::jsonb)`,
+        [
+          a.autotanque_id,
+          a.unidad_clave,
+          a.tipo,
+          0,
+          0,
+          ORIGEN_INFORMACION,
+          JSON.stringify(a.detalle),
+        ]
       );
     }
     await client.query("COMMIT");
