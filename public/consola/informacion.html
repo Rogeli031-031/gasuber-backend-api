@@ -13,14 +13,37 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="simple-page">
-      <header class="simple-header">
-        <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
+    <main class="simple-page informacion-page">
+      <header class="simple-header informacion-header">
+        <div class="informacion-header-left">
+          <a class="back-link" href="./" aria-label="Volver al menú">← Volver al menú</a>
+          <div class="informacion-planta-card" aria-label="Selección de planta">
+            <span class="informacion-planta-label" id="lblPlanta">Planta</span>
+            <select id="selPlanta" class="informacion-planta-select" aria-labelledby="lblPlanta">
+              <option value="">— Cargando… —</option>
+            </select>
+          </div>
+        </div>
         <div class="simple-titlewrap">
           <h1>Información</h1>
           <p class="sub">Placeholder: documentos, válvulas, placas, seguros, dictámenes y vencimientos.</p>
         </div>
       </header>
+
+      <div class="config-row informacion-api-row">
+        <label class="grow">
+          API key (<code>x-api-key</code>)
+          <input
+            id="inpApiKey"
+            type="password"
+            autocomplete="off"
+            placeholder="Misma que API_KEY_CONSOLE o API_KEY_RASPBERRY"
+          />
+        </label>
+        <button type="button" id="btnGuardarKey" class="btn secondary">Guardar clave</button>
+      </div>
+      <p id="statusMsg" class="status" aria-live="polite"></p>
+
       <section class="simple-content">
         <div class="placeholder-panel">
           <h2>En construcción</h2>
@@ -28,8 +51,17 @@
             Próximamente: registros con fecha de caducidad/vencimiento para control de renovaciones.
           </p>
         </div>
+
+        <div class="informacion-pdv-wrap" role="group" aria-label="Tipo de punto de venta">
+          <button type="button" class="informacion-pdv-btn" data-pdv-kind="autotanque">
+            Autotanque
+          </button>
+          <button type="button" class="informacion-pdv-btn" data-pdv-kind="almacen">Almacén</button>
+          <button type="button" class="informacion-pdv-btn" data-pdv-kind="estacion">Estaciones</button>
+        </div>
       </section>
     </main>
+    <script src="./informacion.js?v=informacion-1"></script>
   </body>
 </html>
 
